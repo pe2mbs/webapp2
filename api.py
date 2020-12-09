@@ -23,7 +23,9 @@ from flask_marshmallow import Marshmallow
 app             = None
 menuItems       = []
 applicInfo      = {}
-plugins         = None
+coreApi         = None
+listModules     = []
+plugins         = []
 loggingInfo     = {}
 bcrypt          = None
 migrate         = None
