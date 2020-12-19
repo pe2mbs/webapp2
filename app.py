@@ -40,6 +40,7 @@ import webapp2.extensions.database
 import webapp2.extensions.marshmallow
 import webapp2.extensions.migrate
 
+
 # Try to load optional packages
 try:
     import webapp2.extensions.stompmq
