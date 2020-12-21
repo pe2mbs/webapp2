@@ -240,6 +240,7 @@ class CrudInterface( object ):
         return
 
     def pagedList( self ):
+        t1 = time.time()
         data = getDictFromRequest( request )
         API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, self._lock_cls().user ) )
         filter = data.get( 'filters', [] )
@@ -322,8 +323,10 @@ class CrudInterface( object ):
             page = pageIndex,
             recordCount = recCount
         )
-        API.app.logger.debug( 'filteredList waiting' )
-        time.sleep(1.5)
+        if t1 + 1 > time.time():
+            API.app.logger.debug( 'filteredList waiting: {}'.format( ( t1 + 1 ) - time.time() ) )
+            time.sleep( ( t1 + 1 ) - time.time() )
+
         API.app.logger.debug( 'filteredList => {}'.format( result ) )
         return result
 
