@@ -1,6 +1,5 @@
 import time
-from flask import request, jsonify
-from datetime import datetime
+from flask import request, jsonify, Response
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from webapp2.common.jsonenc import JsonEncoder
@@ -14,8 +13,7 @@ from backend.core.exceptions import *
 
 # adapted from:
 # https://gist.github.com/gsakkis/4572159
-from datetime import date, timedelta
-from datetime import datetime
+from datetime import date, timedelta, datetime
 
 from sqlalchemy.orm import Query
 
@@ -34,6 +32,7 @@ def render_query(statement, dialect=None):
             dialect = statement.session.bind.dialect
 
         statement = statement.statement
+
     elif dialect is None:
         dialect = statement.bind.dialect
 
@@ -46,15 +45,19 @@ def render_query(statement, dialect=None):
         def render_array_value(self, val, item_type):
             if isinstance(val, list):
                 return "{%s}" % ",".join([self.render_array_value(x, item_type) for x in val])
+
             return self.render_literal_value(val, item_type)
 
         def render_literal_value(self, value, type_):
             if isinstance(value, int):
                 return str(value)
+
             elif isinstance(value, (str, date, datetime, timedelta)):
                 return "'%s'" % str(value).replace("'", "''")
+
             elif isinstance(value, list):
                 return "'{%s}'" % (",".join([self.render_array_value(x, type_.item_type) for x in value]))
+
             return super(LiteralCompiler, self).render_literal_value(value, type_)
 
     return LiteralCompiler(dialect, statement).process(statement)
@@ -119,7 +122,7 @@ class RecordLock( object ):
 
     @classmethod
     def locked( cls, request, user = None ):
-        from backend.locking.model import RecordLocks
+        from backend.core.locking.model import RecordLocks
         obj = cls()
         if user is None:
             user = obj.user
@@ -156,7 +159,7 @@ class RecordLock( object ):
 
     @classmethod
     def unlock( cls, request, user = None ):
-        from backend.locking.model import RecordLocks
+        from backend.core.locking.model import RecordLocks
         data = getDictFromRequest( request )
         obj = cls()
         if user is None:
@@ -187,7 +190,7 @@ class RecordLock( object ):
 
     @classmethod
     def lock( cls, request, user = None ):
-        from backend.locking.model import RecordLocks
+        from backend.core.locking.model import RecordLocks
         data = getDictFromRequest( request )
         obj = cls()
         if user is None:
@@ -254,25 +257,25 @@ class CrudInterface( object ):
                 continue
 
             column  = item.get( 'column', None )
-            value   = item.get( 'value', None )
-            API.app.logger.debug( "Filter {} {} {} ".format( column, operator, value ) )
+            value1, value2   = item.get( 'value', [ None, None ] )
+            API.app.logger.debug( "Filter {} {} {} / {}".format( column, operator, value1, value2 ) )
             if operator == 'EQ':
-                query = query.filter( getattr( self._model_cls, column ) == value )
+                query = query.filter( getattr( self._model_cls, column ) == value1 )
 
             elif operator == '!EQ':
-                query = query.filter( getattr( self._model_cls, column ) != value )
+                query = query.filter( getattr( self._model_cls, column ) != value1 )
 
             elif operator == 'GT':
-                query = query.filter( getattr( self._model_cls, column ) > value )
+                query = query.filter( getattr( self._model_cls, column ) > value1 )
 
             elif operator == 'LE':
-                query = query.filter( getattr( self._model_cls, column ) < value )
+                query = query.filter( getattr( self._model_cls, column ) < value1 )
 
             elif operator == 'GT|EQ':
-                query = query.filter( getattr( self._model_cls, column ) >= value )
+                query = query.filter( getattr( self._model_cls, column ) >= value1 )
 
             elif operator == 'LE|EQ':
-                query = query.filter( getattr( self._model_cls, column ) <= value )
+                query = query.filter( getattr( self._model_cls, column ) <= value1 )
 
             elif operator == 'EM':
                 query = query.filter( getattr( self._model_cls, column ) == "" )
@@ -281,44 +284,54 @@ class CrudInterface( object ):
                 query = query.filter( getattr( self._model_cls, column ) != "" )
 
             elif operator == 'CO':
-                query = query.filter( getattr( self._model_cls, column ).contains( value ) )
+                query = query.filter( getattr( self._model_cls, column ).like( "%{}%".format( value1 ) ) )
 
             elif operator == '!CO':
-                query = query.filter( not_( getattr( self._model_cls, column ).contains( value ) ) )
+                query = query.filter( not_( getattr( self._model_cls, column ).contains( value1 ) ) )
 
             elif operator == 'BT': # Between
-                pass
+                query = query.filter( getattr( self._model_cls, column ).between( value1, value2 ) )
 
             elif operator == 'SW': # Startswith
-                pass
+                query = query.filter( getattr( self._model_cls, column ).like( "{}%".format( value1 ) ) )
 
             elif operator == 'EW': # Endswith
-                pass
+                query = query.filter( getattr( self._model_cls, column ).like( "%{}".format( value1 ) ) )
 
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
+        API.app.logger.debug( "SQL-QUERY count {}".format( recCount ) )
         sorting = data.get( 'sorting', None )
         if isinstance( sorting, dict ):
             column = sorting.get( 'column', None )
-            if sorting.get( 'direction', 'asc' ) == 'asc':
-                query = query.order_by( getattr( self._model_cls, column ) )
+            if column is not None:
+                if column.endswith( '_LABEL' ):
+                    column = column[ : -6 ]
 
-            else:
-                query = query.order_by( getattr( self._model_cls, column ).desc() )
+                if sorting.get( 'direction', 'asc' ) == 'asc':
+                    query = query.order_by( getattr( self._model_cls, column ) )
+
+                else:
+                    query = query.order_by( getattr( self._model_cls, column ).desc() )
 
         pageIndex = data.get( 'pageIndex', 0 )
         pageSize = data.get( 'pageSize', 1 )
+        API.app.logger.debug( "SQL-QUERY limit {} / {}".format( pageIndex, pageSize ) )
+        if ( ( pageIndex * pageSize ) > recCount ):
+            pageIndex = 0
+
         query = query.limit( pageSize ).offset( pageIndex * pageSize )
-        records = []
-        for rec in query.all():
-            result = {}
-            for col in self._model_cls.__field_list__:
-                result[ col ] = getattr( rec, col )
-
-            records.append( result )
-
+        # records = []
+        # for rec in query.all():
+        #     result = {}
+        #     for col in self._model_cls.__field_list__:
+        #         result[ col ] = getattr( rec, col )
+        #
+        #     records.append( result )
+        result:Response = self._schema_list_cls.jsonify( query.all() )
+        API.app.logger.debug( "RESULT count {} => {}".format( recCount, result.json ) )
         result = jsonify(
-            records = records,
+            records = result.json,
             pageSize = pageSize,
             page = pageIndex,
             recordCount = recCount
