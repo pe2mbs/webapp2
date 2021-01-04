@@ -131,6 +131,7 @@ def handle_exception( e: Exception ):
         }
     except Exception:
         app.logger.error( traceback.format_exc() )
+        print( traceback.format_exc(), file = sys.stderr )
 
     response.data = json.dumps( response_data, indent = 4 )
     response.content_type = "application/json"
