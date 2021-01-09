@@ -1,5 +1,5 @@
 import time
-from flask import request, jsonify, Response
+from flask import request, jsonify, Response, Request
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from webapp2.common.jsonenc import JsonEncoder
@@ -168,11 +168,25 @@ class RecordLock( object ):
         if user is None:
             user = 'single.user'
 
-        API.logger.debug( "unlock: {}".format( data ) )
-        if isinstance( obj._data, dict ) and obj._record_id in obj._data:
-            obj._id = data[ obj._record_id ]
+        API.logger.info( "request: {}".format( request ) )
+        if isinstance( request, dict ):
+            obj._data = request
+
+        elif isinstance( request, Request ):
+            obj._data = request.json
+
+        elif isinstance( request, LocalProxy ):
+            obj._data = getDictFromRequest( request )
+
+        API.logger.debug( "unlock: {}".format( obj._data ) )
+        if isinstance( obj._data, dict ):
+            obj._id = data.get( obj._record_id, None )
+            if obj._id is None:
+                API.logger.error( 'Could not retrieve {} from record'.format( obj._record_id ) )
+                return { 'result': 'OK', 'table': obj._table, 'id': obj._id }
 
         else:
+            API.logger.error( 'data not a record'.format( obj._record_id ) )
             return { 'result': 'OK', 'table': obj._table, 'id': obj._id }
 
         try:
@@ -414,10 +428,12 @@ class CrudInterface( object ):
 
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
-        API.recordTracking.delete( self._model_cls.__tablename__,
-                                   locker.id,
-                                   record.dictionary,
-                                   locker.user )
+        if self._lock:
+            API.recordTracking.delete( self._model_cls.__tablename__,
+                                       locker.id,
+                                       record.dictionary,
+                                       locker.user )
+
         API.db.session.delete( record )
         API.db.session.commit()
         result = jsonify( ok = True )
