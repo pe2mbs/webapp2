@@ -66,6 +66,7 @@ def handle_exception( e: Exception ):
     """Return JSON instead of HTML for HTTP errors."""
     # start with the correct headers and status code from the error
     app.logger.error( "Error handler: {} :: {}".format( type( e ), e ) )
+    print( "Error handler: {} :: {}".format( type( e ), e ) )
     if isinstance( e, werkzeug.exceptions.HTTPException ):
         response: Response = make_response( e.description, e.code )
         description = e.description
@@ -129,6 +130,7 @@ def handle_exception( e: Exception ):
             },
             "traceback":    traceback.format_exc().splitlines( keepends = False )
         }
+
     except Exception:
         app.logger.error( traceback.format_exc() )
         print( traceback.format_exc(), file = sys.stderr )

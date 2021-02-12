@@ -1,5 +1,5 @@
 import time
-from flask import request, jsonify, Response, Request
+from flask import request, jsonify, Response, Request, redirect, abort
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from webapp2.common.jsonenc import JsonEncoder
@@ -7,7 +7,13 @@ from flask.globals import LocalProxy
 import posixpath
 import json
 import webapp2.api as API
-import flask_jwt_extended
+from flask_jwt_extended import (
+    jwt_required,
+    create_access_token,
+    verify_jwt_in_request,
+    get_jwt_identity
+)
+
 # TODO: this needs to be moved to the webapp2 package
 from backend.core.exceptions import *
 
@@ -111,7 +117,7 @@ class RecordLock( object ):
     @property
     def user( self ):
         try:
-            user_info = flask_jwt_extended.get_jwt_identity()
+            user_info = get_jwt_identity()
             if user_info in ( None, '', 0 ):
                 user_info = 'single.user'
 
@@ -233,7 +239,7 @@ class CrudInterface( object ):
     _lock = True
     _uri = ''
 
-    def __init__( self, blue_print ):
+    def __init__( self, blue_print, use_jwt = True ):
         self._blue_print = blue_print
         self.registerRoute( 'list/<id>/<value>', self.filteredList, methods = [ 'GET' ] )
         self.registerRoute( 'pagedlist', self.pagedList, methods = [ 'POST' ] )
@@ -247,7 +253,12 @@ class CrudInterface( object ):
         self.registerRoute( 'select', self.selectList, methods = [ 'GET' ] )
         self.registerRoute( 'lock', self.lock, methods = [ 'POST' ] )
         self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ] )
+        self.__useJWT   = use_jwt
         return
+
+    @property
+    def useJWT( self ):
+        return self.__useJWT
 
     def registerRoute( self, rule, function, endpoint = None, **options ):
         self._blue_print.add_url_rule( posixpath.join( self._uri, rule ),
@@ -256,10 +267,29 @@ class CrudInterface( object ):
                                        **options )
         return
 
+    def checkAuthentication( self ):
+        if self.__useJWT:
+            verify_jwt_in_request()
+
+        return
+
     def pagedList( self ):
+        self.checkAuthentication()
         t1 = time.time()
+        authorization = request.headers.get( 'Authorization', None )
+        # if authorization is not None:
+        #     if authorization.startswith( 'Bearer ' ):
+        #         username, role_id = self.decodeToken( authorization[ 7: ] )
+        #         if username is None:
+        #             # Do redirect to /#/logout
+        #             return redirect( '/#/logout' )
+        #
+        # else:
+        #     abort( redirect( '/#/logout' ) )
+
         data = getDictFromRequest( request )
-        API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, self._lock_cls().user ) )
+        user_info = get_jwt_identity()
+        API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
         filter = data.get( 'filters', [] )
 
         API.app.logger.debug( "Filter {}".format( filter ) )
@@ -358,6 +388,7 @@ class CrudInterface( object ):
         return result
 
     def filteredList( self, id, value ):
+        self.checkAuthentication()
         filter = { id: value }
         API.app.logger.debug( 'GET: {}/list/{}/{} by {}'.format( self._uri, id, value, self._lock_cls().user ) )
         recordList = API.db.session.query( self._model_cls ).filter_by( **filter ).all()
@@ -366,6 +397,7 @@ class CrudInterface( object ):
         return result
 
     def recordList( self ):
+        self.checkAuthentication()
         API.app.logger.debug( 'GET: {}/list by {}'.format( self._uri, self._lock_cls().user ) )
         recordList = API.db.session.query( self._model_cls ).all()
         result = self._schema_list_cls.jsonify( recordList )
@@ -373,6 +405,7 @@ class CrudInterface( object ):
         return result
 
     def newRecord( self, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -394,6 +427,7 @@ class CrudInterface( object ):
         return result
 
     def recordGet( self, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -407,6 +441,7 @@ class CrudInterface( object ):
         return result
 
     def recordGetId( self, id, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -420,6 +455,7 @@ class CrudInterface( object ):
         return result
 
     def recordDelete( self, id, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -441,6 +477,7 @@ class CrudInterface( object ):
         return result
 
     def updateRecord( self, data: dict, record: any, user = None ):
+        self.checkAuthentication()
         if isinstance( record, int ):
             record = API.db.session.query( self._model_cls ).get( record )
 
@@ -475,6 +512,7 @@ class CrudInterface( object ):
         return record
 
     def recordPut( self, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -493,6 +531,7 @@ class CrudInterface( object ):
         return result
 
     def recordPatch( self, **kwargs ):
+        self.checkAuthentication()
         if 'locker' in kwargs:
             locker = kwargs[ 'locker' ]
 
@@ -512,6 +551,7 @@ class CrudInterface( object ):
         return result
 
     def selectList( self ):
+        self.checkAuthentication()
         data = getDictFromRequest( request )
         API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, repr( data ), self._lock_cls().user ) )
         value = data.get( 'value', 'N_ID' )    # primary key
@@ -525,16 +565,14 @@ class CrudInterface( object ):
 
     def lock( self ):
         if self._lock:
+            self.checkAuthentication()
             return jsonify( self._lock_cls.lock( request ) )
 
         return ""
 
     def unlock( self ):
         if self._lock:
+            self.checkAuthentication()
             return jsonify( self._lock_cls.unlock( request ) )
 
         return ""
-
-
-
-
