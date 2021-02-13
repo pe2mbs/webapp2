@@ -2,6 +2,7 @@ import time
 from flask import request, jsonify, Response, Request, redirect, abort
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.exc import IntegrityError
 from webapp2.common.jsonenc import JsonEncoder
 from flask.globals import LocalProxy
 import posixpath
@@ -197,10 +198,9 @@ class RecordLock( object ):
 
         try:
             API.logger.debug( "Unlocking {}:{} for {}".format( obj._table, obj._id, user ) )
-            rec = API.db.session.query( RecordLocks ).filter( and_( RecordLocks.L_TABLE == obj._table,
+            API.db.session.query( RecordLocks ).filter( and_( RecordLocks.L_TABLE == obj._table,
                                                                RecordLocks.L_RECORD_ID == obj._id,
-                                                               RecordLocks.L_USER == user ) ).one()
-            API.db.session.delete( rec )
+                                                               RecordLocks.L_USER == user ) ).delete()
             API.db.session.commit()
             API.logger.debug( "Unlocking done" )
         except NoResultFound:
@@ -470,11 +470,20 @@ class CrudInterface( object ):
                                        record.dictionary,
                                        locker.user )
 
+        API.app.logger.debug( 'Deleting record: {}'.format( record ) )
         API.db.session.delete( record )
-        API.db.session.commit()
-        result = jsonify( ok = True )
-        API.app.logger.debug( 'recordDelete() => {}'.format( record ) )
-        return result
+        API.app.logger.debug( 'Commit delete' )
+        message = ''
+        try:
+            API.db.session.commit()
+            result = True
+
+        except IntegrityError:
+            message = 'Could not delete due relations still exists'
+            result = False
+
+        API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
+        return jsonify( ok = result, reason = message ), 200 if result else 409
 
     def updateRecord( self, data: dict, record: any, user = None ):
         self.checkAuthentication()
