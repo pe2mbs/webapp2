@@ -349,9 +349,6 @@ class CrudInterface( object ):
         if isinstance( sorting, dict ):
             column = sorting.get( 'column', None )
             if column is not None:
-                if column.endswith( '_LABEL' ):
-                    column = column[ : -6 ]
-
                 if sorting.get( 'direction', 'asc' ) == 'asc':
                     query = query.order_by( getattr( self._model_cls, column ) )
 
