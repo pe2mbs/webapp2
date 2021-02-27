@@ -116,7 +116,7 @@ def angularSource( path ):
 #
 #
 class Feedback( db.Model ):
-    __tablename__       = 'ap_feedback'
+    __tablename__       = 'feedback'
     F_ID                = db.Column( "f_id",        db.Integer, autoincrement = True, primary_key = True )
     F_NAME              = db.Column( "f_name",      db.String( 50 ), nullable = False )
     F_TYPE              = db.Column( "f_type",      db.Integer, nullable = False )

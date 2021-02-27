@@ -238,6 +238,7 @@ class CrudInterface( object ):
     _schema_list_cls = None
     _lock = True
     _uri = ''
+    _relations = []
 
     def __init__( self, blue_print, use_jwt = True ):
         self._blue_print = blue_print
@@ -259,6 +260,11 @@ class CrudInterface( object ):
     @property
     def useJWT( self ):
         return self.__useJWT
+
+    @useJWT.setter
+    def useJWT( self, value ):
+        self.__useJWT = value
+        return
 
     def registerRoute( self, rule, function, endpoint = None, **options ):
         self._blue_print.add_url_rule( posixpath.join( self._uri, rule ),
@@ -462,9 +468,19 @@ class CrudInterface( object ):
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
         if self._lock:
+            recordData = record.dictionary
+            for relation in self._relations:
+                # Now
+                if 'delete' in relation.get( 'cascade' ):
+                    cascadeRecords = []
+                    for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
+                        cascadeRecords.append( relRecord.dictionary )
+
+                    recordData[ relation.get( 'class', '' ) ] = cascadeRecords
+
             API.recordTracking.delete( self._model_cls.__tablename__,
                                        locker.id,
-                                       record.dictionary,
+                                       recordData,
                                        locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
@@ -493,9 +509,14 @@ class CrudInterface( object ):
         else:
             Exception( "Missing record ref" )
 
-        data = self.beforeUpdate( data )
-        for field, value in data.items():
-            setattr( record, field, value )
+        result = self._schema_cls.load( self.beforeUpdate( data ),
+                               instance = record, partial=True )
+        if len( result ) > 1:
+            for field, value in result[0] .items():
+                setattr( record, field, value )
+
+        else:
+            raise Exception( result.errors )
 
         return self.beforeCommit( record )
 
@@ -547,10 +568,10 @@ class CrudInterface( object ):
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
         result = self._schema_cls.jsonify( record )
-        API.recordTracking.update( self._model_cls.__tablename__,
-                                   locker.id,
-                                   record.dictionary,
-                                   locker.user )
+        # API.recordTracking.update( self._model_cls.__tablename__,
+        #                            locker.id,
+        #                            record.dictionary,
+        #                            locker.user )
         API.db.session.commit()
         result = self._schema_cls.jsonify( record )
         API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
