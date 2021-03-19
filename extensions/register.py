@@ -63,7 +63,6 @@ def registerExtensions( module ):
     if API.socketio is not None:
         API.socketio.init_app( API.app, async_mode='eventlet' )
 
-
         @API.socketio.on( 'message' )
         def handle_unnamed_message( message ):
             API.app.logger.error( "Received unnamed WebSocket message: '{}'".format( message ) )

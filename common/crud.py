@@ -239,6 +239,7 @@ class CrudInterface( object ):
     _lock = True
     _uri = ''
     _relations = []
+    _delayed = False
 
     def __init__( self, blue_print, use_jwt = True ):
         self._blue_print = blue_print
@@ -383,7 +384,7 @@ class CrudInterface( object ):
             page = pageIndex,
             recordCount = recCount
         )
-        if t1 + 1 > time.time():
+        if self._delayed and t1 + 1 > time.time():
             API.app.logger.debug( 'filteredList waiting: {}'.format( ( t1 + 1 ) - time.time() ) )
             time.sleep( ( t1 + 1 ) - time.time() )
 
@@ -391,12 +392,17 @@ class CrudInterface( object ):
         return result
 
     def filteredList( self, id, value ):
+        t1 = time.time()
         self.checkAuthentication()
         filter = { id: value }
         API.app.logger.debug( 'GET: {}/list/{}/{} by {}'.format( self._uri, id, value, self._lock_cls().user ) )
         recordList = API.db.session.query( self._model_cls ).filter_by( **filter ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'filteredList => count: {}'.format( len( recordList ) ) )
+        if self._delayed and t1 + 1 > time.time():
+            API.app.logger.debug( 'filteredList waiting: {}'.format( ( t1 + 1 ) - time.time() ) )
+            time.sleep( ( t1 + 1 ) - time.time() )
+
         return result
 
     def recordList( self ):
@@ -509,10 +515,11 @@ class CrudInterface( object ):
         else:
             Exception( "Missing record ref" )
 
-        result = self._schema_cls.load( self.beforeUpdate( data ),
-                               instance = record, partial=True )
+        result = self._schema_cls.load( self.beforeUpdate( data ) )
+        API.app.logger.debug( "{}".format( result ) )
         if len( result ) > 1:
-            for field, value in result[0] .items():
+            for field, value in result.items():
+                API.app.logger.debug( "{} := '{}'".format( field, value ) )
                 setattr( record, field, value )
 
         else:
