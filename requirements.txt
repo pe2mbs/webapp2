@@ -9,7 +9,7 @@ chardet==3.0.4
 Click==7.0
 colorhash==1.0.3
 configparser==5.0.2
-cryptography==3.2.1
+cryptography==3.3.2
 Deprecated==1.2.10
 Flask==1.0.2
 flask-apispec==0.7.0
