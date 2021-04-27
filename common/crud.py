@@ -1,27 +1,14 @@
 import time
-from flask import request, jsonify, Response, Request, redirect, abort
+from flask import request, Response, Request
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
-from webapp2.common.jsonenc import JsonEncoder
 from flask.globals import LocalProxy
 import posixpath
-import json
 import webapp2.api as API
-from flask_jwt_extended import (
-    jwt_required,
-    create_access_token,
-    verify_jwt_in_request,
-    get_jwt_identity
-)
-
-# TODO: this needs to be moved to the webapp2 package
-from backend.core.exceptions import *
-
-# adapted from:
-# https://gist.github.com/gsakkis/4572159
+from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
+from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
-
 from sqlalchemy.orm import Query
 
 
@@ -125,7 +112,7 @@ class RecordLock( object ):
         except:
             user_info = 'single.user'
 
-        return 'single.user'
+        return user_info
 
     @classmethod
     def locked( cls, request, user = None ):
@@ -203,6 +190,7 @@ class RecordLock( object ):
                                                                RecordLocks.L_USER == user ) ).delete()
             API.db.session.commit()
             API.logger.debug( "Unlocking done" )
+
         except NoResultFound:
             API.logger.debug( "lock record not found for {}:{} by {}".format( obj._table, obj._id, user ) )
 
@@ -283,24 +271,11 @@ class CrudInterface( object ):
     def pagedList( self ):
         self.checkAuthentication()
         t1 = time.time()
-        authorization = request.headers.get( 'Authorization', None )
-        # if authorization is not None:
-        #     if authorization.startswith( 'Bearer ' ):
-        #         username, role_id = self.decodeToken( authorization[ 7: ] )
-        #         if username is None:
-        #             # Do redirect to /#/logout
-        #             return redirect( '/#/logout' )
-        #
-        # else:
-        #     abort( redirect( '/#/logout' ) )
-
         data = getDictFromRequest( request )
         user_info = get_jwt_identity()
         API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
         filter = data.get( 'filters', [] )
-
         API.app.logger.debug( "Filter {}".format( filter ) )
-
         query = API.db.session.query( self._model_cls )
         for item in filter:
             operator = item.get( 'operator', None )
@@ -369,13 +344,6 @@ class CrudInterface( object ):
             pageIndex = 0
 
         query = query.limit( pageSize ).offset( pageIndex * pageSize )
-        # records = []
-        # for rec in query.all():
-        #     result = {}
-        #     for col in self._model_cls.__field_list__:
-        #         result[ col ] = getattr( rec, col )
-        #
-        #     records.append( result )
         result:Response = self._schema_list_cls.jsonify( query.all() )
         API.app.logger.debug( "RESULT count {} => {}".format( recCount, result.json ) )
         result = jsonify(
@@ -415,12 +383,7 @@ class CrudInterface( object ):
 
     def newRecord( self, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( request )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'POST: {}/new {} by {}'.format( self._uri, repr( locker.data), locker.user ) )
         locker.removeId()
         record = self.updateRecord( locker.data, self._model_cls(), locker.user )
@@ -437,12 +400,7 @@ class CrudInterface( object ):
 
     def recordGet( self, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( request )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self._model_cls.query.get( locker.id )
         result = self._schema_cls.jsonify( record )
@@ -451,12 +409,7 @@ class CrudInterface( object ):
 
     def recordGetId( self, id, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( int( id ) )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'GET: {}/get/{} by {}'.format( self._uri, locker.id, locker.user ) )
         record = self._model_cls.query.get( locker.id )
         result = self._schema_cls.jsonify( record )
@@ -465,12 +418,7 @@ class CrudInterface( object ):
 
     def recordDelete( self, id, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( int( id ) )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
         if self._lock:
@@ -547,12 +495,7 @@ class CrudInterface( object ):
 
     def recordPut( self, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( request )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
         result = self._schema_cls.jsonify( record )
@@ -566,19 +509,9 @@ class CrudInterface( object ):
 
     def recordPatch( self, **kwargs ):
         self.checkAuthentication()
-        if 'locker' in kwargs:
-            locker = kwargs[ 'locker' ]
-
-        else:
-            locker = self._lock_cls.locked( request )
-
+        locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        result = self._schema_cls.jsonify( record )
-        # API.recordTracking.update( self._model_cls.__tablename__,
-        #                            locker.id,
-        #                            record.dictionary,
-        #                            locker.user )
         API.db.session.commit()
         result = self._schema_cls.jsonify( record )
         API.app.logger.debug( 'recordPatch() => {}'.format( record ) )

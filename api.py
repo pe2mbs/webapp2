@@ -19,6 +19,8 @@
 #
 import os
 from flask_marshmallow import Marshmallow
+from webapp2.common.tablemngt import TableManager
+
 
 app             = None
 menuItems       = []
@@ -40,3 +42,5 @@ logger          = None
 HERE            = os.path.abspath( os.path.dirname( __file__ ) )
 PROJECT_ROOT    = os.path.join( HERE, os.pardir )
 recordTracking  = None
+dbtables        = TableManager()
+memorytables    = TableManager()
