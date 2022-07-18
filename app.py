@@ -185,8 +185,9 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         logArgs = {
             'pid': os.getpid(),
             'name': process_name,
+            'process_args': '-'.join(sys.argv[offset:] ),
             'process_name': sys.argv[ offset - 1 ],
-            'process_args': '-'.join( sys.argv[ offset: ] )
+
         }
         if isinstance( API.loggingInfo, str ):
             # filename
