@@ -178,10 +178,13 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         else:
             API.loggingInfo = LOGGING_INFO
 
+        # ERNST 2022-07-18 Start add process_args
         logArgs = {
             'pid': os.getpid(),
-            'name': process_name
+            'name': process_name,
+            'process_args' : process_name
         }
+        # ERNST 2022-07-18 End
         if isinstance( API.loggingInfo, str ):
             # filename
             API.loggingInfo = loadLoggingFile( root_path,
