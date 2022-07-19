@@ -178,10 +178,11 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         else:
             API.loggingInfo = LOGGING_INFO
 
-        offset = 1
-        if len( sys.argv ) > 1 and sys.argv[ 1 ].endswith( '.py' ):
-            offset = 2
+        offset = 0
+        while len( sys.argv ) > offset and ( sys.argv[ offset ].endswith( '.py' ) or sys.argv[ offset ].endswith( '.exe' ) ):
+            offset += 1
 
+        print( "sys.argv", sys.argv, offset )
         logArgs = {
             'pid': os.getpid(),
             'name': process_name,
