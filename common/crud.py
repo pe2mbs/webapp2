@@ -244,6 +244,7 @@ class CrudInterface( object ):
         self.registerRoute( 'select', self.selectList, methods = [ 'GET', 'POST' ] )
         self.registerRoute( 'lock', self.lock, methods = [ 'POST' ] )
         self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ] )
+        self.registerRoute( 'count', self.recordCount, methods=['GET'])
         self.__useJWT   = use_jwt
         return
 
@@ -395,7 +396,7 @@ class CrudInterface( object ):
         self.checkAuthentication()
         # get primary key of class
         primary_key = self._model_cls.__field_list__[ 0 ]
-        result = jsonify({"primaryKey": primary_key})
+        result = jsonify( { "primaryKey": primary_key } )
         return result
 
     def newRecord( self, **kwargs ):
@@ -419,7 +420,12 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
-        record = self._model_cls.query.get( locker.id )
+        #record = self._model_cls.query.get( locker.id )
+        query = API.db.session.query( self._model_cls )
+        for column, value in locker.data.items():
+            query = query.filter(getattr(self._model_cls, column) == value)
+
+        record = query.one()
         result = self._schema_cls.jsonify( record )
         API.app.logger.debug( 'recordGet() => {0}'.format( result ) )
         return result
@@ -486,6 +492,7 @@ class CrudInterface( object ):
         # workaround to consider different Marshmallow versions
         if not isinstance(result, dict):
             result = result.data
+
         API.app.logger.debug( "{}".format( result ) )
         if len( result ) > 1:
             for field, value in result.items():
@@ -493,7 +500,7 @@ class CrudInterface( object ):
                 setattr( record, field, value )
 
         else:
-            raise Exception( result.errors )
+            raise Exception( result )
 
         return self.beforeCommit( record )
 
@@ -568,6 +575,9 @@ class CrudInterface( object ):
         API.app.logger.debug( 'selectList => count: {}'.format( len( result ) ) )
         # API.app.logger.debug( 'selectList => result: {}'.format( result ) )
         return jsonify( result )
+
+    def recordCount( self ):
+        return jsonify( recordCount = API.db.session.query( self._model_cls ).count() )
 
     def lock( self ):
         if self._lock:
