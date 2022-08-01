@@ -52,14 +52,17 @@ def after_request_func(response):
         # deleted items
         if not disableTracking:
             # apply tracking on changed records
+            user = response.headers["USER"] if ("USER" in  response.headers and \
+                 response.headers["USER"] not in (None, "")) else "backend"
             if API.db.session.deleted:
-                print("###################", API.db.session.deleted)
+                #print("###################", API.db.session.deleted)
                 for deletedObject in API.db.session.deleted:
                     API.recordTracking.delete( deletedObject.__tablename__,
                                     getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
                                     deletedObject.dictionary,
-                                    "backend" )
+                                    user )
             if API.db.session.dirty:
+                # TODO: handle attribute modifications if desired
                 #print("###################", API.db.session.dirty)
                 pass
                 #for object in API.db.session.dirty:
@@ -70,13 +73,13 @@ def after_request_func(response):
             if API.db.session.new:
                 newRecords = API.db.session.new
                 API.db.session.commit()
-                print("###################", newRecords)
+                #print("###################", newRecords)
                 for addedObject in newRecords:
                     print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
                     API.recordTracking.insert( addedObject.__tablename__,
                                         getattr(addedObject, addedObject.__field_list__[ 0 ]),
                                         addedObject.dictionary,
-                                        "backend" )
+                                        user )
                     # in case we add only one item as it is the case for a crudinterface call
                     # we will only have one item created and return it in the response
                     if addedObject.__field_list__[ 0 ] in response.json:

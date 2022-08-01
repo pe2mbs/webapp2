@@ -408,6 +408,7 @@ class CrudInterface( object ):
         API.db.session.add( record )
         #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
+        result.headers["USER"] = locker.user
         #rec_id = getattr( record, self._model_cls.__field_list__[ 0 ] )
         #API.recordTracking.insert( self._model_cls.__tablename__,
         #                           rec_id,
@@ -473,7 +474,9 @@ class CrudInterface( object ):
         #    result = False
 
         API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
-        return jsonify( ok = result, reason = message ), 200 if result else 409
+        response = jsonify( ok = result, reason = message )
+        response.headers["USER"] = locker.user
+        return response
 
     def updateRecord( self, data: dict, record: any, user = None ):
         self.checkAuthentication()
@@ -528,6 +531,7 @@ class CrudInterface( object ):
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
         result = self._schema_cls.jsonify( record )
+        result.headers["USER"] = locker.user
         #API.recordTracking.update( self._model_cls.__tablename__,
         #                           locker.id,
         #                           record.dictionary,
@@ -543,6 +547,7 @@ class CrudInterface( object ):
         record = self.updateRecord( locker.data, locker.id, locker.user )
         #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
+        result.headers["USER"] = locker.user
         API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
         return result
 
