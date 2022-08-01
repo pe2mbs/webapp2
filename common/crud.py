@@ -406,13 +406,13 @@ class CrudInterface( object ):
         locker.removeId()
         record = self.updateRecord( locker.data, self._model_cls(), locker.user )
         API.db.session.add( record )
-        API.db.session.commit()
+        #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
-        rec_id = getattr( record, self._model_cls.__field_list__[ 0 ] )
-        API.recordTracking.insert( self._model_cls.__tablename__,
-                                   rec_id,
-                                   record.dictionary,
-                                   locker.user )
+        #rec_id = getattr( record, self._model_cls.__field_list__[ 0 ] )
+        #API.recordTracking.insert( self._model_cls.__tablename__,
+        #                           rec_id,
+        #                           record.dictionary,
+        #                           locker.user )
         API.app.logger.debug( 'newRecord() => {0}'.format( record ) )
         return result
 
@@ -444,33 +444,33 @@ class CrudInterface( object ):
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
-        if self._lock:
-            recordData = record.dictionary
-            for relation in self._relations:
-                # Now
-                if 'delete' in relation.get( 'cascade' ):
-                    cascadeRecords = []
-                    for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
-                        cascadeRecords.append( relRecord.dictionary )
+        #if self._lock:
+        #recordData = record.dictionary
+        #for relation in self._relations:
+            # Now
+        #    if 'delete' in relation.get( 'cascade' ):
+        #        cascadeRecords = []
+        #        for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
+        #            cascadeRecords.append( relRecord.dictionary )
+        #        recordData[ relation.get( 'class', '' ) ] = cascadeRecords
 
-                    recordData[ relation.get( 'class', '' ) ] = cascadeRecords
-
-            API.recordTracking.delete( self._model_cls.__tablename__,
-                                       locker.id,
-                                       recordData,
-                                       locker.user )
+        #API.recordTracking.delete( self._model_cls.__tablename__,
+        #                           locker.id,
+        #                           recordData,
+        #                           locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
         API.db.session.delete( record )
-        API.app.logger.debug( 'Commit delete' )
+        #API.app.logger.debug( 'Commit delete' )
         message = ''
-        try:
-            API.db.session.commit()
-            result = True
+        result = True
+        #try:
+        #    API.db.session.commit()
+        #    result = True
 
-        except IntegrityError:
-            message = 'Could not delete due relations still exists'
-            result = False
+        #except IntegrityError:
+        #    message = 'Could not delete due relations still exists'
+        #    result = False
 
         API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
         return jsonify( ok = result, reason = message ), 200 if result else 409
@@ -528,11 +528,11 @@ class CrudInterface( object ):
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
         result = self._schema_cls.jsonify( record )
-        API.recordTracking.update( self._model_cls.__tablename__,
-                                   locker.id,
-                                   record.dictionary,
-                                   locker.user )
-        API.db.session.commit()
+        #API.recordTracking.update( self._model_cls.__tablename__,
+        #                           locker.id,
+        #                           record.dictionary,
+        #                           locker.user )
+        #API.db.session.commit()
         API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
         return result
 
@@ -541,7 +541,7 @@ class CrudInterface( object ):
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        API.db.session.commit()
+        #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
         API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
         return result
