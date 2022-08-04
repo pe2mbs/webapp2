@@ -19,7 +19,6 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-from testrun.gn_user.schema import UserSchema
 import webapp2.api as API
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from flask import request
@@ -54,14 +53,13 @@ def after_request_func(response):
             # apply tracking on changed records
             user = response.headers["USER"] if ("USER" in  response.headers and \
                  response.headers["USER"] not in (None, "")) else "backend"
+
+            deletedRecords, modifiedRecords, newRecords = None, None, None
+
             if API.db.session.deleted:
-                #print("###################", API.db.session.deleted)
-                for deletedObject in API.db.session.deleted:
-                    API.recordTracking.delete( deletedObject.__tablename__,
-                                    getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
-                                    deletedObject.dictionary,
-                                    user )
+                deletedRecords = API.db.session.deleted
             if API.db.session.dirty:
+                modifiedRecords = API.db.session.dirty
                 # TODO: handle attribute modifications if desired
                 #print("###################", API.db.session.dirty)
                 pass
@@ -70,9 +68,25 @@ def after_request_func(response):
                 #        print("###################", API.db.session.dirty)
                 #    else: 
                 #        print("&&&&&&&&&&&&&&&&&&&&&&&&&&", API.db.session.dirty)
+
+                #print("###################", API.db.session.deleted)
             if API.db.session.new:
                 newRecords = API.db.session.new
-                API.db.session.commit()
+            
+            # commit or at least try to commit all changes
+            API.db.session.commit()
+
+            if deletedRecords:
+                for deletedObject in deletedRecords:
+                    print("###############", deletedObject.dictionary)
+                    API.recordTracking.delete( deletedObject.__tablename__,
+                                    getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
+                                    deletedObject.dictionary,
+                                    user )
+            if modifiedRecords:
+                # TODO:
+                pass
+            if newRecords:
                 #print("###################", newRecords)
                 for addedObject in newRecords:
                     print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
@@ -88,8 +102,6 @@ def after_request_func(response):
         else:
             pass
 
-        # finally, commit changes done in the current session
-        API.db.session.commit()
         return response
 
     except IntegrityError as error:
