@@ -49,58 +49,57 @@ def after_request_func(response):
         # TODO: sqlalchemy does not seem to be aware of cascade deletion before commits
         # so we will only track the item that is deleted by user and not the cascade
         # deleted items
-        if not disableTracking:
-            # apply tracking on changed records
-            user = response.headers["USER"] if ("USER" in  response.headers and \
-                 response.headers["USER"] not in (None, "")) else "backend"
+        
+        # apply tracking on changed records
+        user = response.headers["USER"] if ("USER" in  response.headers and \
+                response.headers["USER"] not in (None, "")) else "backend"
 
-            deletedRecords, modifiedRecords, newRecords = None, None, None
+        deletedRecords, modifiedRecords, newRecords = None, None, None
 
-            if API.db.session.deleted:
-                deletedRecords = API.db.session.deleted
-            if API.db.session.dirty:
-                modifiedRecords = API.db.session.dirty
-                # TODO: handle attribute modifications if desired
-                #print("###################", API.db.session.dirty)
-                pass
-                #for object in API.db.session.dirty:
-                #    if API.db.session.is_modified(object):
-                #        print("###################", API.db.session.dirty)
-                #    else: 
-                #        print("&&&&&&&&&&&&&&&&&&&&&&&&&&", API.db.session.dirty)
+        if API.db.session.deleted:
+            deletedRecords = API.db.session.deleted
+        if API.db.session.dirty:
+            modifiedRecords = API.db.session.dirty
+            # TODO: handle attribute modifications if desired
+            #print("###################", API.db.session.dirty)
+            pass
+            #for object in API.db.session.dirty:
+            #    if API.db.session.is_modified(object):
+            #        print("###################", API.db.session.dirty)
+            #    else: 
+            #        print("&&&&&&&&&&&&&&&&&&&&&&&&&&", API.db.session.dirty)
 
-                #print("###################", API.db.session.deleted)
-            if API.db.session.new:
-                newRecords = API.db.session.new
-            
-            # commit or at least try to commit all changes
-            API.db.session.commit()
+            #print("###################", API.db.session.deleted)
+        if API.db.session.new:
+            newRecords = API.db.session.new
+        
+        # commit or at least try to commit all changes
+        API.db.session.commit()
 
-            if deletedRecords:
-                for deletedObject in deletedRecords:
-                    print("###############", deletedObject.dictionary)
-                    API.recordTracking.delete( deletedObject.__tablename__,
-                                    getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
-                                    deletedObject.dictionary,
-                                    user )
-            if modifiedRecords:
-                # TODO:
-                pass
-            if newRecords:
-                #print("###################", newRecords)
-                for addedObject in newRecords:
-                    print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
+        if deletedRecords and not disableTracking:
+            for deletedObject in deletedRecords:
+                # print("###############", deletedObject.dictionary)
+                API.recordTracking.delete( deletedObject.__tablename__,
+                                getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
+                                deletedObject.dictionary,
+                                user )
+        if modifiedRecords and not disableTracking:
+            # TODO:
+            pass
+        if newRecords:
+            #print("###################", newRecords)
+            for addedObject in newRecords:
+                if not disableTracking:
+                    # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
                     API.recordTracking.insert( addedObject.__tablename__,
                                         getattr(addedObject, addedObject.__field_list__[ 0 ]),
                                         addedObject.dictionary,
                                         user )
-                    # in case we add only one item as it is the case for a crudinterface call
-                    # we will only have one item created and return it in the response
-                    if addedObject.__field_list__[ 0 ] in response.json:
-                        response.data = addedObject.schemaJson
-                        return response
-        else:
-            pass
+                # in case we add only one item as it is the case for a crudinterface call
+                # we will only have one item created and return it in the response
+                if addedObject.__field_list__[ 0 ] in response.json:
+                    response.data = addedObject.schemaJson
+                    return response
 
         return response
 
