@@ -58,11 +58,9 @@ def after_request_func(response):
 
         if API.db.session.deleted:
             deletedRecords = API.db.session.deleted
-        if API.db.session.dirty:
-            modifiedRecords = API.db.session.dirty
-            # TODO: handle attribute modifications if desired
-            #print("###################", API.db.session.dirty)
-            pass
+
+        #if API.db.session.dirty:
+        #    modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]            
             #for object in API.db.session.dirty:
             #    if API.db.session.is_modified(object):
             #        print("###################", API.db.session.dirty)
@@ -83,9 +81,17 @@ def after_request_func(response):
                                 getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
                                 deletedObject.dictionary,
                                 user )
-        if modifiedRecords and not disableTracking:
-            # TODO:
-            pass
+        #if modifiedRecords:
+            # for modifiedRecord in modifiedRecords:
+            #     if not disableTracking:
+            #         # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
+            #         API.recordTracking.update( modifiedRecord.__tablename__,
+            #                             getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]),
+            #                             modifiedRecord.dictionary,
+            #                             user )
+            #     response.data = modifiedRecord.schemaJson
+            #     return response
+
         if newRecords:
             #print("###################", newRecords)
             for addedObject in newRecords:

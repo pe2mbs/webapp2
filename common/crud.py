@@ -488,6 +488,7 @@ class CrudInterface( object ):
 
         else:
             Exception( "Missing record ref" )
+        print(record)
 
         # the .data was added after the merge from github into gitlab since
         # unmarshalresult objects have a data attribute containing the result
@@ -500,6 +501,7 @@ class CrudInterface( object ):
         if len( result ) > 1:
             for field, value in result.items():
                 API.app.logger.debug( "{} := '{}'".format( field, value ) )
+                print("********************", field, getattr(record, field), value)
                 setattr( record, field, value )
 
         else:
@@ -528,8 +530,26 @@ class CrudInterface( object ):
     def recordPut( self, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
+
+        oldRecord = None
+        try:
+            oldRecord = API.db.session.query( self._model_cls ).get( locker.id ).dictionary
+        except:
+            pass
+
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
+
+        requestData = request.json
+        if requestData is None:
+            requestData = request.args
+        if not (requestData != None and "tracking" in requestData and requestData["tracking"] in (False, str(False))):
+            if oldRecord:
+                API.recordTracking.update( self._model_cls.__tablename__,
+                                        locker.id,
+                                        oldRecord,
+                                        locker.user )
+
         result = self._schema_cls.jsonify( record )
         result.headers["USER"] = locker.user
         #API.recordTracking.update( self._model_cls.__tablename__,
@@ -543,12 +563,32 @@ class CrudInterface( object ):
     def recordPatch( self, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
+
+        oldRecord = None
+        try:
+            oldRecord = API.db.session.query( self._model_cls ).get( locker.id ).dictionary
+        except:
+            pass
+
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        #API.db.session.commit()
+        #print("1:", API.db.session.dirty)
+
+        # Here, we need to apply the tracking
+        requestData = request.json
+        if requestData is None:
+            requestData = request.args
+        if not (requestData != None and "tracking" in requestData and requestData["tracking"] in (False, str(False))):
+            if oldRecord:
+                API.recordTracking.update( self._model_cls.__tablename__,
+                                        locker.id,
+                                        oldRecord,
+                                        locker.user )
+        # the jsonification changes the dirty set of sqlalchemy
         result = self._schema_cls.jsonify( record )
         result.headers["USER"] = locker.user
         API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
+        #print("2:", API.db.session.dirty)
         return result
 
     def selectList( self ):
