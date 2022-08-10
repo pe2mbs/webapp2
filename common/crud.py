@@ -325,13 +325,13 @@ class CrudInterface( object ):
                 query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}%".format( value1 ) ) )
 
             elif operator == '!CO':
-                query = query.filter( not_( getattr( relatedClass, attributes[-1]n ).contains( value1 ) ) )
+                query = query.filter( not_( getattr( relatedClass, attributes[-1] ).contains( value1 ) ) )
 
             elif operator == 'BT': # Between
                 query = query.filter( getattr( relatedClass, attributes[-1] ).between( value1, value2 ) )
 
             elif operator == 'SW': # Startswith
-                query = query.filter( getattr( relatedClass, attributes[-1]n ).like( "{}%".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "{}%".format( value1 ) ) )
 
             elif operator == 'EW': # Endswith
                 query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}".format( value1 ) ) )
