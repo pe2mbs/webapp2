@@ -18,10 +18,20 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 import os
-
+from functools import reduce
 
 class InvalidModel( Exception ):
     pass
+
+
+def getNestedAttr(obj, name):
+        if not "." in name:
+            return getattr(obj, name)
+        try:
+            attr = reduce(getattr, name.split("."), obj)
+            return attr
+        except AttributeError:
+            return getattr(obj, name)
 
 
 def keysToString( keys ):

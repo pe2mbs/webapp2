@@ -10,6 +10,7 @@ from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
+from webapp2.common.util import getNestedAttr
 
 
 def render_query(statement, dialect=None):
@@ -284,44 +285,56 @@ class CrudInterface( object ):
                 value1, value2 = item.get( 'value' ), None
 
             API.app.logger.debug( "Filter {} {} {} / {}".format( column, operator, value1, value2 ) )
+
+            # if we have a nested relationship attribute, we split the column and
+            # access the attribute via joins
+            attributes = column.split(".")
+            relatedClass = self._model_cls
+            if len(attributes) > 1:
+                for i in range(0, len(attributes) - 1):
+                    relationship = getattr( relatedClass, attributes[i])
+                    query = query.join(relationship)
+                    relatedClass = relationship.mapper.class_
+
             if operator == 'EQ':
-                query = query.filter( getattr( self._model_cls, column ) == value1 )
+                # apply filter
+                query = query.filter( getattr( relatedClass, attributes[-1] ) == value1)
 
             elif operator == '!EQ':
-                query = query.filter( getattr( self._model_cls, column ) != value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) != value1 )
 
             elif operator == 'GT':
-                query = query.filter( getattr( self._model_cls, column ) > value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) > value1 )
 
             elif operator == 'LE':
-                query = query.filter( getattr( self._model_cls, column ) < value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) < value1 )
 
             elif operator == 'GT|EQ':
-                query = query.filter( getattr( self._model_cls, column ) >= value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) >= value1 )
 
             elif operator == 'LE|EQ':
-                query = query.filter( getattr( self._model_cls, column ) <= value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) <= value1 )
 
             elif operator == 'EM':
-                query = query.filter( getattr( self._model_cls, column ) == "" )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) == "" )
 
             elif operator == '!EM':
-                query = query.filter( getattr( self._model_cls, column ) != "" )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) != "" )
 
             elif operator == 'CO':
-                query = query.filter( getattr( self._model_cls, column ).like( "%{}%".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}%".format( value1 ) ) )
 
             elif operator == '!CO':
-                query = query.filter( not_( getattr( self._model_cls, column ).contains( value1 ) ) )
+                query = query.filter( not_( getattr( relatedClass, attributes[-1]n ).contains( value1 ) ) )
 
             elif operator == 'BT': # Between
-                query = query.filter( getattr( self._model_cls, column ).between( value1, value2 ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).between( value1, value2 ) )
 
             elif operator == 'SW': # Startswith
-                query = query.filter( getattr( self._model_cls, column ).like( "{}%".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1]n ).like( "{}%".format( value1 ) ) )
 
             elif operator == 'EW': # Endswith
-                query = query.filter( getattr( self._model_cls, column ).like( "%{}".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}".format( value1 ) ) )
 
         return query
 
@@ -343,10 +356,10 @@ class CrudInterface( object ):
             column = sorting.get( 'column', None )
             if column is not None:
                 if sorting.get( 'direction', 'asc' ) == 'asc':
-                    query = query.order_by( getattr( self._model_cls, column ) )
+                    query = query.order_by( getNestedAttr( self._model_cls, column ) )
 
                 else:
-                    query = query.order_by( getattr( self._model_cls, column ).desc() )
+                    query = query.order_by( getNestedAttr( self._model_cls, column ).desc() )
 
         pageIndex = data.get( 'pageIndex', 0 )
         pageSize = data.get( 'pageSize', 1 )

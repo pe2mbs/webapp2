@@ -46,9 +46,15 @@ def get_model( name ):
 
 
 def get_model_by_tablename( tablename ):
-    for c in db.Model._decl_class_registry.values():
-        if hasattr( c, '__tablename__' ) and c.__tablename__ == tablename:
-            return c
+    try:
+        for c in db.Model.registry._class_registry.values():
+            if hasattr( c, '__tablename__' ) and c.__tablename__ == tablename:
+                return c
+    except Exception as error:
+        # retry with old code
+         for c in db.Model._decl_class_registry.values():
+            if hasattr( c, '__tablename__' ) and c.__tablename__ == tablename:
+                return c
 
     return None
 
