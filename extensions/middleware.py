@@ -40,7 +40,6 @@ def after_request_func(response):
         # enable tracking by default, however, this can be set to false
         # either by request or from the request handler through the response
         disableTracking = False
-        print("tracking" in requestData)
         if requestData != None and "tracking" in requestData and requestData["tracking"] in (False, str(False)):
             disableTracking = True
         if response.json != None and "tracking" in response.json and response.json["tracking"] in (False, str(False)):
