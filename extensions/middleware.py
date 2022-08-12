@@ -20,6 +20,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 import webapp2.api as API
+from webapp2.api import app
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from flask import request
 
@@ -29,7 +30,7 @@ from flask import request
 #def before_request_func():
 #    print("before_request executing!")
 
-@(API.app).after_request
+@app.after_request
 def after_request_func(response):
     if response.status_code >= 400:
         return
