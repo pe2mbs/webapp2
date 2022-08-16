@@ -22,6 +22,7 @@
 import webapp2.api as API
 from webapp2.api import app
 from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm import attributes as history_attributes
 from flask import request
 
 
@@ -59,38 +60,53 @@ def after_request_func(response):
         if API.db.session.deleted:
             deletedRecords = API.db.session.deleted
 
-        #if API.db.session.dirty:
-        #    modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]            
-            #for object in API.db.session.dirty:
-            #    if API.db.session.is_modified(object):
-            #        print("###################", API.db.session.dirty)
-            #    else: 
-            #        print("&&&&&&&&&&&&&&&&&&&&&&&&&&", API.db.session.dirty)
+        if API.db.session.dirty:
+            modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]
 
             #print("###################", API.db.session.deleted)
         if API.db.session.new:
             newRecords = API.db.session.new
         
         # commit or at least try to commit all changes
-        API.db.session.commit()
+        #API.db.session.commit()
 
         if deletedRecords and not disableTracking:
-            for deletedObject in deletedRecords:
-                # print("###############", deletedObject.dictionary)
+            deletedRecords = list(deletedRecords)
+            if len(deletedRecords) > 1:
+                API.recordTracking.cascade_delete(
+                            [record.__tablename__ for record in deletedRecords],
+                            getattr(deletedRecords[0], deletedRecords[0].__field_list__[ 0 ]),
+                            [record.dictionary for record in deletedRecords],
+                            user )
+            else:
+                deletedObject = deletedRecords[0]
                 API.recordTracking.delete( deletedObject.__tablename__,
                                 getattr(deletedObject, deletedObject.__field_list__[ 0 ]),
                                 deletedObject.dictionary,
                                 user )
-        #if modifiedRecords:
-            # for modifiedRecord in modifiedRecords:
-            #     if not disableTracking:
-            #         # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
-            #         API.recordTracking.update( modifiedRecord.__tablename__,
-            #                             getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]),
-            #                             modifiedRecord.dictionary,
-            #                             user )
-            #     response.data = modifiedRecord.schemaJson
-            #     return response
+        if modifiedRecords:
+            for modifiedRecord in modifiedRecords:
+                if not disableTracking:
+                    #oldRecord = None
+                    #try:
+                    #    oldRecord = API.db.session.query( type(modifiedRecord) ).get( getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]) ).dictionary
+                    #except:
+                    #    pass
+                    #print(oldRecord)
+                    # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
+                    oldRecord = modifiedRecord.dictionary
+                    for key in oldRecord:
+                        # get an history object that shows the changes for a given attribute
+                        # deleted specifies the old value for an attribute
+                        changedValues = history_attributes.get_history(modifiedRecord, key).deleted
+                        if len(changedValues) > 0:
+                            oldRecord[key] = changedValues[-1]
+                    API.recordTracking.update( modifiedRecord.__tablename__,
+                                        getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]),
+                                        oldRecord,
+                                        user )
+                response.data = modifiedRecord.schemaJson
+                return response
 
         if newRecords:
             #print("###################", newRecords)

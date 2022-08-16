@@ -34,10 +34,11 @@ class TrackingSchema( API.mm.SQLAlchemySchema ):
     T_RECORD_ID    = fields.Integer()
     T_CHANGE_DATE_TIME    = fields.DateTime()
     T_CONTENTS    = fields.String()
+    T_VERSION    = fields.String()
 
     @post_dump
     def post_dump_process( self, in_data, **kwargs ):
-        in_data[ 'T_ACTION_LABEL' ] = value2Label( {1: 'Insert', 2: 'Update', 3: 'Delete'}, in_data[ 'T_ACTION' ] )
+        in_data[ 'T_ACTION_LABEL' ] = value2Label( {1: 'Insert', 2: 'Update', 3: 'Delete', 4: 'Cascade Delete'}, in_data[ 'T_ACTION' ] )
         return in_data
 
     @pre_load

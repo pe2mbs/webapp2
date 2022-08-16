@@ -38,6 +38,8 @@ class Tracking( API.db.Model, CrudModelMixin ):
     T_RECORD_ID          = API.db.Column( "t_record_id", API.db.Integer, nullable = False )
     T_CHANGE_DATE_TIME   = API.db.Column( "t_change_date_time", API.db.DateTime, nullable = False )
     T_CONTENTS           = API.db.Column( "t_contents", API.db.LONGTEXT, nullable = True )
+    T_VERSION            = API.db.Column( "t_version", API.db.TEXT, nullable = False )
+
 
 
     def memoryInstance( self ):

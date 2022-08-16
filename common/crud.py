@@ -544,65 +544,28 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
 
-        oldRecord = None
-        try:
-            oldRecord = API.db.session.query( self._model_cls ).get( locker.id ).dictionary
-        except:
-            pass
-
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
 
-        requestData = request.json
-        if requestData is None:
-            requestData = request.args
-        if not (requestData != None and "tracking" in requestData and requestData["tracking"] in (False, str(False))):
-            if oldRecord:
-                API.recordTracking.update( self._model_cls.__tablename__,
-                                        locker.id,
-                                        oldRecord,
-                                        locker.user )
-
-        result = self._schema_cls.jsonify( record )
-        result.headers["USER"] = locker.user
-        #API.recordTracking.update( self._model_cls.__tablename__,
-        #                           locker.id,
-        #                           record.dictionary,
-        #                           locker.user )
-        #API.db.session.commit()
-        API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
-        return result
+        with API.db.session.no_autoflush:
+            result = self._schema_cls.jsonify( record )
+            result.headers["USER"] = locker.user
+            API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
+            return result
 
     def recordPatch( self, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
 
-        oldRecord = None
-        try:
-            oldRecord = API.db.session.query( self._model_cls ).get( locker.id ).dictionary
-        except:
-            pass
-
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        #print("1:", API.db.session.dirty)
-
-        # Here, we need to apply the tracking
-        requestData = request.json
-        if requestData is None:
-            requestData = request.args
-        if not (requestData != None and "tracking" in requestData and requestData["tracking"] in (False, str(False))):
-            if oldRecord:
-                API.recordTracking.update( self._model_cls.__tablename__,
-                                        locker.id,
-                                        oldRecord,
-                                        locker.user )
+        
         # the jsonification changes the dirty set of sqlalchemy
-        result = self._schema_cls.jsonify( record )
-        result.headers["USER"] = locker.user
-        API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
-        #print("2:", API.db.session.dirty)
-        return result
+        with API.db.session.no_autoflush:
+            result = self._schema_cls.jsonify( record )
+            result.headers["USER"] = locker.user
+            API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
+            return result
 
     def selectList( self ):
         name_field = self._model_cls.__field_list__[ 1 ]
