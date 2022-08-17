@@ -68,7 +68,7 @@ def after_request_func(response):
             newRecords = API.db.session.new
         
         # commit or at least try to commit all changes
-        #API.db.session.commit()
+        API.db.session.commit()
 
         if deletedRecords and not disableTracking:
             deletedRecords = list(deletedRecords)
