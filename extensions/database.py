@@ -167,7 +167,9 @@ def getDataBase( app = None ):
         app = current_app
 
     logging.warning( "Create new DB session for application context" )
-    db_thread = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention ) )
+    session_options = app.config.get( 'SQLALCHEMY_SESSION_OPTIONS', {} )
+
+    db_thread = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention, session_options = session_options ) )
     # This to configure the database
     db_thread.init_app( app )
     app.app_context().push()
