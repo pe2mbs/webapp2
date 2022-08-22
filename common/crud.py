@@ -514,7 +514,6 @@ class CrudInterface( object ):
         if len( result ) > 1:
             for field, value in result.items():
                 API.app.logger.debug( "{} := '{}'".format( field, value ) )
-                print("********************", field, getattr(record, field), value)
                 setattr( record, field, value )
 
         else:
