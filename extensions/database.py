@@ -115,8 +115,10 @@ def compile_binary_sqlite(type_, compiler, **kw):
 db              = None
 thread_db       = {}
 if db is None:
+    # TODO: load session options here from config!
+    session_options = { "autoflush": False }
     # Make sure that the db is initialized only once!
-    db = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention ) )
+    db = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention), session_options = session_options )
     API.db = db
     # if "mysql" in db.session.bind.dialect.name:
     #     # This is nessary for the QUERY below to read the changes make by other processes.
@@ -175,7 +177,7 @@ def getDataBase( app = None ):
     logging.warning( "Create new DB session for application context" )
     session_options = app.config.get( 'SQLALCHEMY_SESSION_OPTIONS', {} )
 
-    db_thread = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention, session_options = session_options ) )
+    db_thread = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention ), session_options = session_options )
     # This to configure the database
     db_thread.init_app( app )
     app.app_context().push()
