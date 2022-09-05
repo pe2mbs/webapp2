@@ -576,11 +576,16 @@ class CrudInterface( object ):
         self.checkAuthentication()
         data = getDictFromRequest( request )
         API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, repr( data ), self._lock_cls().user ) )
-        value = data.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
-        label = data.get( 'label', name_field )  # first field name
+
+        # TODO: here, we explicitly assume that a post request is sent with params and filter
+        listParams = data.get( 'params' )
+        value = listParams.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
+        label = listParams.get( 'label', name_field )  # first field name
+
         if isinstance( data.get( 'filter' ), dict ):
             filter = [ data.get( 'filter' ) ]
-
+        elif isinstance( data.get( 'filter' ), list ):
+            filter = data.get( 'filter' )
         else:
             filter = []
 
