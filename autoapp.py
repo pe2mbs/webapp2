@@ -20,7 +20,8 @@
 import traceback
 import sys
 import socket
-from flask import json, request, jsonify, render_template, make_response, Response
+from flask import json, request, url_for, render_template, make_response, Response
+from mako.template import Template
 import werkzeug.exceptions
 
 __version__     = "1.0"
@@ -60,6 +61,27 @@ except Exception:
 finally:
     sys.stderr = saved_err
     sys.stdout = saved_out
+
+
+def has_no_empty_params(rule):
+    defaults = rule.defaults if rule.defaults is not None else ()
+    arguments = rule.arguments if rule.arguments is not None else ()
+    return len(defaults) >= len(arguments)
+
+
+@app.route("/site-map")
+def site_map():
+    links = []
+    for rule in app.url_map.iter_rules():
+        # Filter out rules we can't navigate to in a browser
+        # and rules that require parameters
+        if "GET" in rule.methods and has_no_empty_params(rule):
+            url = url_for(rule.endpoint, **(rule.defaults or {}))
+            links.append((url, rule.endpoint))
+
+    # links is now a list of url, endpoint tuples
+    # return "<br/>".join( [ f"{url}  = {endpoint}" for url, endpoint in links ] )
+    return Template( filename = os.path.join( os.path.dirname( __file__), 'sitemap.html' ) ).render( links = links )
 
 
 def getHostByAddress( host_address ):
