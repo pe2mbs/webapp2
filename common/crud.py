@@ -258,7 +258,10 @@ class CrudInterface( object ):
         return
 
     def registerRoute( self, rule, function, endpoint = None, **options ):
-        self._blue_print.add_url_rule( posixpath.join( self._uri, rule ),
+        if not rule.startswith( '/' ):
+            rule = posixpath.join( self._uri, rule )
+
+        self._blue_print.add_url_rule( rule,
                                        endpoint,
                                        function,
                                        **options )
