@@ -7,7 +7,7 @@ import webapp2.api as API
 from webapp2.common.crud import getDictFromRequest, render_query
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
-# import webapp2.common.tracking.constant as constant
+from webapp2.common.tracking import constant
 from webapp2.common.tracking.model import Tracking
 
 
@@ -32,6 +32,17 @@ class TrackingViewMixin( object ):
         record = None
         try:
             record: Tracking = query.one()
+            if record.T_ACTION == constant.C_T_ACTION_CASCADE_DELETE:
+                tables = json.loads( record.T_TABLE )
+                for i, recordDict in enumerate(json.loads( record.T_CONTENTS )):
+                    restoreRecord = API.dbtables.instanciate( tables[i] )
+                    for key, value in recordDict.items():
+                        if hasattr( restoreRecord, key ):
+                            setattr( restoreRecord, key, value )
+                    API.db.session.add( restoreRecord )
+                API.db.session.delete( record )
+                API.db.session.commit()
+
             if record.T_ACTION == constant.C_T_ACTION_DELETE:
                 restoreRecord = API.dbtables.instanciate( record.T_TABLE )
                 for key, value in json.loads( record.T_CONTENTS ).items():

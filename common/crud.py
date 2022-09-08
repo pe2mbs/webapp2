@@ -10,6 +10,7 @@ from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
+from webapp2.common.util import getNestedAttr
 
 
 def render_query(statement, dialect=None):
@@ -287,44 +288,56 @@ class CrudInterface( object ):
                 value1, value2 = item.get( 'value' ), None
 
             API.app.logger.debug( "Filter {} {} {} / {}".format( column, operator, value1, value2 ) )
+
+            # if we have a nested relationship attribute, we split the column and
+            # access the attribute via joins
+            attributes = column.split(".")
+            relatedClass = self._model_cls
+            if len(attributes) > 1:
+                for i in range(0, len(attributes) - 1):
+                    relationship = getattr( relatedClass, attributes[i])
+                    query = query.join(relationship)
+                    relatedClass = relationship.mapper.class_
+
             if operator == 'EQ':
-                query = query.filter( getattr( self._model_cls, column ) == value1 )
+                # apply filter
+                query = query.filter( getattr( relatedClass, attributes[-1] ) == value1)
 
             elif operator == '!EQ':
-                query = query.filter( getattr( self._model_cls, column ) != value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) != value1 )
 
             elif operator == 'GT':
-                query = query.filter( getattr( self._model_cls, column ) > value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) > value1 )
 
             elif operator == 'LE':
-                query = query.filter( getattr( self._model_cls, column ) < value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) < value1 )
 
             elif operator == 'GT|EQ':
-                query = query.filter( getattr( self._model_cls, column ) >= value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) >= value1 )
 
             elif operator == 'LE|EQ':
-                query = query.filter( getattr( self._model_cls, column ) <= value1 )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) <= value1 )
 
             elif operator == 'EM':
-                query = query.filter( getattr( self._model_cls, column ) == "" )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) == "" )
 
             elif operator == '!EM':
-                query = query.filter( getattr( self._model_cls, column ) != "" )
+                query = query.filter( getattr( relatedClass, attributes[-1] ) != "" )
 
             elif operator == 'CO':
-                query = query.filter( getattr( self._model_cls, column ).like( "%{}%".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}%".format( value1 ) ) )
 
             elif operator == '!CO':
-                query = query.filter( not_( getattr( self._model_cls, column ).contains( value1 ) ) )
+                query = query.filter( not_( getattr( relatedClass, attributes[-1] ).contains( value1 ) ) )
 
             elif operator == 'BT': # Between
-                query = query.filter( getattr( self._model_cls, column ).between( value1, value2 ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).between( value1, value2 ) )
 
             elif operator == 'SW': # Startswith
-                query = query.filter( getattr( self._model_cls, column ).like( "{}%".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "{}%".format( value1 ) ) )
 
             elif operator == 'EW': # Endswith
-                query = query.filter( getattr( self._model_cls, column ).like( "%{}".format( value1 ) ) )
+                query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}".format( value1 ) ) )
 
         return query
 
@@ -346,10 +359,10 @@ class CrudInterface( object ):
             column = sorting.get( 'column', None )
             if column is not None:
                 if sorting.get( 'direction', 'asc' ) == 'asc':
-                    query = query.order_by( getattr( self._model_cls, column ) )
+                    query = query.order_by( getNestedAttr( self._model_cls, column ) )
 
                 else:
-                    query = query.order_by( getattr( self._model_cls, column ).desc() )
+                    query = query.order_by( getNestedAttr( self._model_cls, column ).desc() )
 
         pageIndex = data.get( 'pageIndex', 0 )
         pageSize = data.get( 'pageSize', 1 )
@@ -409,13 +422,14 @@ class CrudInterface( object ):
         locker.removeId()
         record = self.updateRecord( locker.data, self._model_cls(), locker.user )
         API.db.session.add( record )
-        API.db.session.commit()
+        #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
-        rec_id = getattr( record, self._model_cls.__field_list__[ 0 ] )
-        API.recordTracking.insert( self._model_cls.__tablename__,
-                                   rec_id,
-                                   record.dictionary,
-                                   locker.user )
+        result.headers["USER"] = locker.user
+        #rec_id = getattr( record, self._model_cls.__field_list__[ 0 ] )
+        #API.recordTracking.insert( self._model_cls.__tablename__,
+        #                           rec_id,
+        #                           record.dictionary,
+        #                           locker.user )
         API.app.logger.debug( 'newRecord() => {0}'.format( record ) )
         return result
 
@@ -447,36 +461,38 @@ class CrudInterface( object ):
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
-        if self._lock:
-            recordData = record.dictionary
-            for relation in self._relations:
-                # Now
-                if 'delete' in relation.get( 'cascade' ):
-                    cascadeRecords = []
-                    for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
-                        cascadeRecords.append( relRecord.dictionary )
+        #if self._lock:
+        #recordData = record.dictionary
+        #for relation in self._relations:
+            # Now
+        #    if 'delete' in relation.get( 'cascade' ):
+        #        cascadeRecords = []
+        #        for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
+        #            cascadeRecords.append( relRecord.dictionary )
+        #        recordData[ relation.get( 'class', '' ) ] = cascadeRecords
 
-                    recordData[ relation.get( 'class', '' ) ] = cascadeRecords
-
-            API.recordTracking.delete( self._model_cls.__tablename__,
-                                       locker.id,
-                                       recordData,
-                                       locker.user )
+        #API.recordTracking.delete( self._model_cls.__tablename__,
+        #                           locker.id,
+        #                           recordData,
+        #                           locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
         API.db.session.delete( record )
-        API.app.logger.debug( 'Commit delete' )
+        #API.app.logger.debug( 'Commit delete' )
         message = ''
-        try:
-            API.db.session.commit()
-            result = True
+        result = True
+        #try:
+        #    API.db.session.commit()
+        #    result = True
 
-        except IntegrityError:
-            message = 'Could not delete due relations still exists'
-            result = False
+        #except IntegrityError:
+        #    message = 'Could not delete due relations still exists'
+        #    result = False
 
         API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
-        return jsonify( ok = result, reason = message ), 200 if result else 409
+        response = jsonify( ok = result, reason = message )
+        response.headers["USER"] = locker.user
+        return response
 
     def updateRecord( self, data: dict, record: any, user = None ):
         self.checkAuthentication()
@@ -488,6 +504,7 @@ class CrudInterface( object ):
 
         else:
             Exception( "Missing record ref" )
+        print(record)
 
         # the .data was added after the merge from github into gitlab since
         # unmarshalresult objects have a data attribute containing the result
@@ -528,26 +545,29 @@ class CrudInterface( object ):
     def recordPut( self, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
+
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        result = self._schema_cls.jsonify( record )
-        API.recordTracking.update( self._model_cls.__tablename__,
-                                   locker.id,
-                                   record.dictionary,
-                                   locker.user )
-        API.db.session.commit()
-        API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
-        return result
+
+        with API.db.session.no_autoflush:
+            result = self._schema_cls.jsonify( record )
+            result.headers["USER"] = locker.user
+            API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
+            return result
 
     def recordPatch( self, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
+
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        API.db.session.commit()
-        result = self._schema_cls.jsonify( record )
-        API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
-        return result
+        
+        # the jsonification changes the dirty set of sqlalchemy
+        with API.db.session.no_autoflush:
+            result = self._schema_cls.jsonify( record )
+            result.headers["USER"] = locker.user
+            API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
+            return result
 
     def selectList( self ):
         name_field = self._model_cls.__field_list__[ 1 ]
@@ -559,11 +579,16 @@ class CrudInterface( object ):
         self.checkAuthentication()
         data = getDictFromRequest( request )
         API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, repr( data ), self._lock_cls().user ) )
-        value = data.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
-        label = data.get( 'label', name_field )  # first field name
+
+        # TODO: here, we explicitly assume that a post request is sent with params and filter
+        listParams = data.get( 'params' )
+        value = listParams.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
+        label = listParams.get( 'label', name_field )  # first field name
+
         if isinstance( data.get( 'filter' ), dict ):
             filter = [ data.get( 'filter' ) ]
-
+        elif isinstance( data.get( 'filter' ), list ):
+            filter = data.get( 'filter' )
         else:
             filter = []
 

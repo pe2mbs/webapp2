@@ -3,6 +3,7 @@
 C_T_ACTION_INSERT                                             = 1
 C_T_ACTION_UPDATE                                             = 2
 C_T_ACTION_DELETE                                             = 3
+C_T_ACTION_CASCADE_DELETE                                     = 4
 
 C_T_ACTION_MAPPING = {1: 'Insert', 2: 'Update', 3: 'Delete'}
 
