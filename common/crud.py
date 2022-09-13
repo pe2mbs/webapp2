@@ -1,5 +1,8 @@
 import time
+from typing import Union, ForwardRef
 from flask import request, Response, Request
+from pydantic import BaseModel
+import traceback
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
@@ -73,6 +76,23 @@ def getDictFromRequest( request ):
 
     return data
 
+
+
+class BaseFilter(BaseModel):
+    operator: str
+    column: str
+    value: Union[tuple, list, str]
+
+
+# required for self referencing models
+TableFilter = ForwardRef('TableFilter')
+class TableFilter(BaseModel):
+    table: str
+    foreignKey: str
+    filters: list[BaseFilter]
+    childFilters: list[TableFilter] = []
+
+TableFilter.update_forward_refs()
 
 class RecordLock( object ):
     def __init__( self, table, record_id ):
@@ -274,25 +294,31 @@ class CrudInterface( object ):
 
         return
 
-    def makeFilter( self, query, filter: list ):
+    def makeFilter( self, query, filter: Union[list[BaseFilter], list[dict]], childFilters: list[TableFilter] = [], model_cls = None ):
+        if model_cls is None:
+            model_cls = self._model_cls
         for item in filter:
-            operator = item.get( 'operator', None )
+            # TODO: can be removed once the filter is passed as a BaseFilter class
+            if isinstance(item, dict):
+                item = BaseFilter.parse_obj(item)
+    
+            operator = getattr( item, 'operator', None )
             if operator is None:
                 continue
 
-            column  = item.get( 'column', None )
-            if isinstance( item.get( 'value' ), ( list, tuple ) ):
-                value1, value2   = item.get( 'value', [ None, None ] )
+            column  = getattr( item, 'column', None )
+            if isinstance( getattr( item, 'value' ), ( list, tuple ) ):
+                value1, value2   = getattr( item, 'value', [ None, None ] )
 
             else:
-                value1, value2 = item.get( 'value' ), None
+                value1, value2 = getattr( item, 'value' ), None
 
             API.app.logger.debug( "Filter {} {} {} / {}".format( column, operator, value1, value2 ) )
 
             # if we have a nested relationship attribute, we split the column and
             # access the attribute via joins
             attributes = column.split(".")
-            relatedClass = self._model_cls
+            relatedClass = model_cls
             if len(attributes) > 1:
                 for i in range(0, len(attributes) - 1):
                     relationship = getattr( relatedClass, attributes[i])
@@ -339,6 +365,20 @@ class CrudInterface( object ):
             elif operator == 'EW': # Endswith
                 query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}".format( value1 ) ) )
 
+        # process the filter for child records
+        if len(childFilters) > 0:
+            tables_dict = {table.__tablename__: table for table in API.db.Model.__subclasses__()}
+        for childFilter in childFilters:
+            try:
+                # join with child table based on foreign key
+                childTableClass = tables_dict[childFilter.table]
+                foreignKey = childFilter.foreignKey
+                query = query.join( childTableClass, and_(getattr(model_cls, model_cls.__field_list__[0]) == getattr(childTableClass, foreignKey)) )
+                # apply filters for child table
+                query = self.makeFilter( query, childFilter.filters, childFilter.childFilters, model_cls=childTableClass )
+            except Exception as e:
+                traceback.print_exc()
+                API.logger.error("Child filter not working, reason: " + str(e))
         return query
 
     def pagedList( self ):
@@ -592,7 +632,14 @@ class CrudInterface( object ):
         else:
             filter = []
 
-        query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
+        childFilters = []
+        if 'childFilters' in data:
+            # TODO: add decorator to all crud methods
+            for childFilter in data.get('childFilters'):
+                childFilters.append(TableFilter.parse_obj(childFilter))
+
+        query = self.makeFilter( API.db.session.query( self._model_cls ), filter, childFilters=childFilters )
+        print(query)
         labels = label.split(',')
         # TODO if label contains comma, split --> list
         # ' '.join( [ getattr( record, l ) for l in labels ] )

@@ -34,7 +34,7 @@ from flask import request
 @app.after_request
 def after_request_func(response):
     if response.status_code >= 400:
-        return
+        return response
     try:
         requestData = request.json
         if requestData is None:
@@ -62,13 +62,14 @@ def after_request_func(response):
 
         if API.db.session.dirty:
             modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]
-
+            print(modifiedRecords)
+            print("++++++++++", history_attributes.get_history(modifiedRecords[0], "TPL_FULL_NAME"))
             #print("###################", API.db.session.deleted)
         if API.db.session.new:
             newRecords = API.db.session.new
         
         # commit or at least try to commit all changes
-        API.db.session.commit()
+        # API.db.session.commit()
 
         if deletedRecords and not disableTracking:
             deletedRecords = list(deletedRecords)
@@ -87,29 +88,15 @@ def after_request_func(response):
         if modifiedRecords:
             for modifiedRecord in modifiedRecords:
                 if not disableTracking:
-                    #oldRecord = None
-                    #try:
-                    #    oldRecord = API.db.session.query( type(modifiedRecord) ).get( getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]) ).dictionary
-                    #except:
-                    #    pass
-                    #print(oldRecord)
-                    # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
-                    oldRecord = modifiedRecord.dictionary
-                    for key in oldRecord:
-                        # get an history object that shows the changes for a given attribute
-                        # deleted specifies the old value for an attribute
-                        changedValues = history_attributes.get_history(modifiedRecord, key).deleted
-                        if len(changedValues) > 0:
-                            oldRecord[key] = changedValues[-1]
-                    API.recordTracking.update( modifiedRecord.__tablename__,
-                                        getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]),
-                                        oldRecord,
-                                        user )
+                    API.recordTracking.autoUpdate( modifiedRecord, user )
                 response.data = modifiedRecord.schemaJson
                 return response
 
         if newRecords:
             #print("###################", newRecords)
+            # commmit so that there will be ids for the primary key on
+            # insertion time
+            API.db.session.commit()
             for addedObject in newRecords:
                 if not disableTracking:
                     # print(getattr(addedObject, addedObject.__field_list__[ 0 ]))
@@ -123,6 +110,7 @@ def after_request_func(response):
                     response.data = addedObject.schemaJson
                     return response
 
+        API.db.session.commit()
         return response
 
     except IntegrityError as error:
