@@ -1,5 +1,5 @@
 import time
-from typing import Union, ForwardRef
+from typing import List, Union, ForwardRef
 from flask import request, Response, Request
 from pydantic import BaseModel
 import traceback
@@ -89,8 +89,8 @@ TableFilter = ForwardRef('TableFilter')
 class TableFilter(BaseModel):
     table: str
     foreignKey: str
-    filters: list[BaseFilter]
-    childFilters: list[TableFilter] = []
+    filters: List[BaseFilter]
+    childFilters: List[TableFilter] = []
 
 TableFilter.update_forward_refs()
 
@@ -294,7 +294,7 @@ class CrudInterface( object ):
 
         return
 
-    def makeFilter( self, query, filter: Union[list[BaseFilter], list[dict]], childFilters: list[TableFilter] = [], model_cls = None ):
+    def makeFilter( self, query, filter: Union[List[BaseFilter], List[dict]], childFilters: List[TableFilter] = [], model_cls = None ):
         if model_cls is None:
             model_cls = self._model_cls
         for item in filter:
