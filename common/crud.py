@@ -1,5 +1,5 @@
 import time
-from typing import List, Union, ForwardRef
+from typing import Any, List, Optional, Union, ForwardRef
 from flask import request, Response, Request
 from pydantic import BaseModel
 import traceback
@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from flask.globals import LocalProxy
 import posixpath
+from testprocess.util.decorators import with_valid_input
 import webapp2.api as API
 from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp2.common.exceptions import *
@@ -609,7 +610,16 @@ class CrudInterface( object ):
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
             return result
 
-    def selectList( self ):
+    class SelectListBodyInput(BaseModel):
+        valueField: Optional[str]
+        labelField: Optional[str]
+        filter: Optional[Union[List[BaseFilter], dict]]
+        initial: Optional[Any]
+        final: Optional[Any]
+        childFilters: Optional[List[TableFilter]]
+
+    @with_valid_input(body=SelectListBodyInput)
+    def selectList( self, body: SelectListBodyInput ):
         name_field = self._model_cls.__field_list__[ 1 ]
         for fld in self._model_cls.__field_list__:
             if fld.endswith( 'NAME' ):
@@ -617,29 +627,26 @@ class CrudInterface( object ):
                 break
 
         self.checkAuthentication()
-        data = getDictFromRequest( request )
-        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, repr( data ), self._lock_cls().user ) )
+        # data = getDictFromRequest( request )
+        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
 
         # TODO: here, we explicitly assume that a post request is sent with params and filter
-        listParams = data.get( 'params' )
-        value = listParams.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
-        label = listParams.get( 'label', name_field )  # first field name
-
-        if isinstance( data.get( 'filter' ), dict ):
-            filter = [ data.get( 'filter' ) ]
-        elif isinstance( data.get( 'filter' ), list ):
-            filter = data.get( 'filter' )
+        value = body.valueField if body.valueField != None else self._model_cls.__field_list__[ 0 ] # primary key
+        label = body.labelField if body.labelField != None else name_field  # first field name
+        if isinstance( body.filter, dict ):
+            filter = body.filter
+        elif isinstance( body.filter, list ):
+            filter = body.filter
         else:
             filter = []
 
         childFilters = []
-        if 'childFilters' in data:
+        if body.childFilters != None:
             # TODO: add decorator to all crud methods
-            for childFilter in data.get('childFilters'):
+            for childFilter in body.childFilters:
                 childFilters.append(TableFilter.parse_obj(childFilter))
 
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter, childFilters=childFilters )
-        print(query)
         labels = label.split(',')
         # TODO if label contains comma, split --> list
         # ' '.join( [ getattr( record, l ) for l in labels ] )
