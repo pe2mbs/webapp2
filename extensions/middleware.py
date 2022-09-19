@@ -62,9 +62,6 @@ def after_request_func(response):
 
         if API.db.session.dirty:
             modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]
-            print(modifiedRecords)
-            print("++++++++++", history_attributes.get_history(modifiedRecords[0], "TPL_FULL_NAME"))
-            #print("###################", API.db.session.deleted)
         if API.db.session.new:
             newRecords = API.db.session.new
         
