@@ -21,8 +21,7 @@
 import webapp2.api as API
 from webapp2.common.dbmem import DbBaseMemory
 from webapp2.common.crudmixin import CrudModelMixin
-
-
+from webapp2.common.tracking.schema import TrackingSchema
 
 
 class Tracking( API.db.Model, CrudModelMixin ):
@@ -31,11 +30,14 @@ class Tracking( API.db.Model, CrudModelMixin ):
     """
     __field_list__       = ['T_ID', 'T_USER', 'T_TABLE', 'T_ACTION', 'T_RECORD_ID', 'T_CHANGE_DATE_TIME', 'T_CONTENTS']
     __tablename__        = 'tracking'
+    __schema_cls__       = TrackingSchema()
+    __secondary_key__    = 'T_RECORD_NAME'
     T_ID                 = API.db.Column( "t_id", API.db.Integer, autoincrement = True, primary_key = True )
     T_USER               = API.db.Column( "t_user", API.db.LONGTEXT, nullable = False )
     T_TABLE              = API.db.Column( "t_table", API.db.LONGTEXT, nullable = False )
     T_ACTION             = API.db.Column( "t_action", API.db.Integer, nullable = False )
     T_RECORD_ID          = API.db.Column( "t_record_id", API.db.Integer, nullable = False )
+    T_RECORD_NAME        = API.db.Column( "t_record_name", API.db.LONGTEXT, nullable = True )
     T_CHANGE_DATE_TIME   = API.db.Column( "t_change_date_time", API.db.DateTime, nullable = False )
     T_CONTENTS           = API.db.Column( "t_contents", API.db.LONGTEXT, nullable = True )
     T_VERSION            = API.db.Column( "t_version", API.db.TEXT, nullable = False )
@@ -46,7 +48,7 @@ class Tracking( API.db.Model, CrudModelMixin ):
         return TrackingMemory( self )
 
 
-# API.dbtables.register( Tracking )
+API.dbtables.register( Tracking )
 
 
 class TrackingMemory( DbBaseMemory ):
