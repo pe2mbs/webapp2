@@ -5,6 +5,7 @@ from numpy import record
 from webapp2.common.jsonenc import JsonEncoder
 import webapp2.api as API
 from webapp2.common.tracking.model import Tracking
+from sqlalchemy.orm import attributes as history_attributes
 from sqlalchemy import text
 
 
@@ -74,5 +75,18 @@ class RecordTracking( object ):
             API.db.session.commit()
         return
 
+    def autoUpdate( self, modifiedRecord, user ):
+        oldRecord = modifiedRecord.dictionary
+        for key in oldRecord:
+            # get an history object that shows the changes for a given attribute
+            # deleted specifies the old value for an attribute
+            changedValues = history_attributes.get_history(modifiedRecord, key).deleted
+            print("-----", key, history_attributes.get_history(modifiedRecord, key))
+            if len(changedValues) > 0:
+                oldRecord[key] = changedValues[-1]
+        self.update( modifiedRecord.__tablename__,
+                            getattr(modifiedRecord, modifiedRecord.__field_list__[ 0 ]),
+                            oldRecord,
+                            user )
 
 # API.recordTracking = RecordTracking()

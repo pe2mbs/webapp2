@@ -1,10 +1,14 @@
 import time
+from typing import Any, List, Optional, Union, ForwardRef
 from flask import request, Response, Request
+from pydantic import BaseModel
+import traceback
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from flask.globals import LocalProxy
 import posixpath
+from testprocess.util.decorators import with_valid_input
 import webapp2.api as API
 from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp2.common.exceptions import *
@@ -73,6 +77,23 @@ def getDictFromRequest( request ):
 
     return data
 
+
+
+class BaseFilter(BaseModel):
+    operator: str
+    column: str
+    value: Union[tuple, list, str]
+
+
+# required for self referencing models
+TableFilter = ForwardRef('TableFilter')
+class TableFilter(BaseModel):
+    table: str
+    foreignKey: str
+    filters: List[BaseFilter]
+    childFilters: List[TableFilter] = []
+
+TableFilter.update_forward_refs()
 
 class RecordLock( object ):
     def __init__( self, table, record_id ):
@@ -242,7 +263,7 @@ class CrudInterface( object ):
         self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ] )
         self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ] )
         self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ] )
-        self.registerRoute( 'select', self.selectList, methods = [ 'GET', 'POST' ] )
+        self.registerRoute( 'select', self.selectList, methods = [ 'POST' ] )
         self.registerRoute( 'lock', self.lock, methods = [ 'POST' ] )
         self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ] )
         self.registerRoute( 'count', self.recordCount, methods=['GET'])
@@ -274,25 +295,31 @@ class CrudInterface( object ):
 
         return
 
-    def makeFilter( self, query, filter: list ):
+    def makeFilter( self, query, filter: Union[List[BaseFilter], List[dict]], childFilters: List[TableFilter] = [], model_cls = None ):
+        if model_cls is None:
+            model_cls = self._model_cls
         for item in filter:
-            operator = item.get( 'operator', None )
+            # TODO: can be removed once the filter is passed as a BaseFilter class
+            if isinstance(item, dict):
+                item = BaseFilter.parse_obj(item)
+
+            operator = getattr( item, 'operator', None )
             if operator is None:
                 continue
 
-            column  = item.get( 'column', None )
-            if isinstance( item.get( 'value' ), ( list, tuple ) ):
-                value1, value2   = item.get( 'value', [ None, None ] )
+            column  = getattr( item, 'column', None )
+            if isinstance( getattr( item, 'value' ), ( list, tuple ) ):
+                value1, value2   = getattr( item, 'value', [ None, None ] )
 
             else:
-                value1, value2 = item.get( 'value' ), None
+                value1, value2 = getattr( item, 'value' ), None
 
             API.app.logger.debug( "Filter {} {} {} / {}".format( column, operator, value1, value2 ) )
 
             # if we have a nested relationship attribute, we split the column and
             # access the attribute via joins
             attributes = column.split(".")
-            relatedClass = self._model_cls
+            relatedClass = model_cls
             if len(attributes) > 1:
                 for i in range(0, len(attributes) - 1):
                     relationship = getattr( relatedClass, attributes[i])
@@ -339,6 +366,20 @@ class CrudInterface( object ):
             elif operator == 'EW': # Endswith
                 query = query.filter( getattr( relatedClass, attributes[-1] ).like( "%{}".format( value1 ) ) )
 
+        # process the filter for child records
+        if len(childFilters) > 0:
+            tables_dict = {table.__tablename__: table for table in API.db.Model.__subclasses__()}
+        for childFilter in childFilters:
+            try:
+                # join with child table based on foreign key
+                childTableClass = tables_dict[childFilter.table]
+                foreignKey = childFilter.foreignKey
+                query = query.join( childTableClass, and_(getattr(model_cls, model_cls.__field_list__[0]) == getattr(childTableClass, foreignKey)) )
+                # apply filters for child table
+                query = self.makeFilter( query, childFilter.filters, childFilter.childFilters, model_cls=childTableClass )
+            except Exception as e:
+                traceback.print_exc()
+                API.logger.error("Child filter not working, reason: " + str(e))
         return query
 
     def pagedList( self ):
@@ -570,7 +611,16 @@ class CrudInterface( object ):
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
             return result
 
-    def selectList( self ):
+    class SelectListBodyInput(BaseModel):
+        value: Optional[str]
+        label: Optional[str]
+        filter: Optional[Union[List[BaseFilter], dict]]
+        initial: Optional[Any]
+        final: Optional[Any]
+        childFilters: Optional[List[TableFilter]]
+
+    @with_valid_input(body=SelectListBodyInput)
+    def selectList( self, body: SelectListBodyInput ):
         name_field = self._model_cls.__field_list__[ 1 ]
         for fld in self._model_cls.__field_list__:
             if fld.endswith( 'NAME' ):
@@ -578,19 +628,28 @@ class CrudInterface( object ):
                 break
 
         self.checkAuthentication()
-        data = getDictFromRequest( request )
-        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, repr( data ), self._lock_cls().user ) )
-        value = data.get( 'value', self._model_cls.__field_list__[ 0 ] )    # primary key
-        label = data.get( 'label', name_field )  # first field name
+        # data = getDictFromRequest( request )
+        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
 
-        if isinstance( data.get( 'filter' ), dict ):
-            filter = [ data.get( 'filter' ) ]
-        elif isinstance( data.get( 'filter' ), list ):
-            filter = data.get( 'filter' )
+        # TODO: here, we explicitly assume that a post request is sent with params and filter
+        value = body.value if body.value != None else self._model_cls.__field_list__[ 0 ] # primary key
+        label = body.label if body.label != None else name_field  # first field name
+        if isinstance( body.filter, dict ):
+            filter = body.filter
+
+        elif isinstance( body.filter, list ):
+            filter = body.filter
+
         else:
             filter = []
 
-        query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
+        childFilters = []
+        if body.childFilters != None:
+            # TODO: add decorator to all crud methods
+            for childFilter in body.childFilters:
+                childFilters.append(TableFilter.parse_obj(childFilter))
+
+        query = self.makeFilter( API.db.session.query( self._model_cls ), filter, childFilters=childFilters )
         labels = label.split(',')
         # TODO if label contains comma, split --> list
         # ' '.join( [ getattr( record, l ) for l in labels ] )
