@@ -279,6 +279,9 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
         raise
 
+    # register table name class mapping
+    API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
+
     return API.app
 
 
