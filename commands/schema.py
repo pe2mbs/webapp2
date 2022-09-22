@@ -2,6 +2,12 @@ import webapp2.api as API
 from sqlalchemy.exc import IntegrityError, InternalError, ProgrammingError
 from datetime import datetime, time, date
 from sqlalchemy.exc import ProgrammingError
+import pymysql.err
+
+
+class NotAnWebappSchema( Exception ):
+    pass
+
 
 def getCurrentSchema():
     return API.app.config[ 'DATABASE' ][ 'SCHEMA' ]
@@ -70,15 +76,25 @@ def getCurrentVersion( schema = None, remote = None):
         if data.rowcount > 0:
             version_num = data.fetchone()[0]
 
-    except ProgrammingError as exc:
-        if exc.orig.args == ( 1146, f"Table '{schema}.alembic_version' doesn't exist" ):
-            return None
 
-        API.logger.exception(f"Retrieving version_num from {schema}.alembic_version")
+    except pymysql.err.ProgrammingError as exc:
+        API.logger.error( f"pymysql.err.ProgrammingError: {exc.args}")
+        if 1146 == exc.args[0] and 'alembic_version' in exc.args[1]:
+            raise NotAnWebappSchema( repr( exc.args ) )
+
+        API.logger.exception(f"pymysql.err.ProgrammingErrorRetrieving version_num from {schema}.alembic_version: {repr(exc.args)}" )
+        return None
+
+    except ProgrammingError as exc:
+        API.logger.error(f"ProgrammingError: {exc.args}")
+        if 1146 == exc.orig.args[0] and 'alembic_version' in exc.orig.args[1]:
+            raise NotAnWebappSchema( repr( exc.orig.args ) )
+
+        API.logger.exception(f"ProgrammingError: Retrieving version_num from {schema}.alembic_version: {repr(exc.args)}")
         return None
 
     except Exception:
-        API.logger.exception( f"Retrieving version_num from {schema}.alembic_version" )
+        API.logger.exception( f"MASTER: Retrieving version_num from {schema}.alembic_version" )
         return None
 
     return version_num
