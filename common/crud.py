@@ -614,10 +614,13 @@ class CrudInterface( object ):
     class SelectListBodyInput(BaseModel):
         value: Optional[str]
         label: Optional[str]
-        filter: Optional[Union[List[BaseFilter], dict]]
+        filter: Optional[Union[List[BaseFilter], List[dict]]]
         initial: Optional[Any]
         final: Optional[Any]
         childFilters: Optional[List[TableFilter]]
+
+        def __repr__(self):
+            return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} | {self.initial}, {self.final} child-filters {self.childFilters}>"
 
     @with_valid_input(body=SelectListBodyInput)
     def selectList( self, body: SelectListBodyInput ):
@@ -629,7 +632,7 @@ class CrudInterface( object ):
 
         self.checkAuthentication()
         # data = getDictFromRequest( request )
-        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
+        API.app.logger.info( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
 
         # TODO: here, we explicitly assume that a post request is sent with params and filter
         value = body.value if body.value != None else self._model_cls.__field_list__[ 0 ] # primary key
