@@ -32,6 +32,7 @@ class TrackingSchema( API.mm.SQLAlchemySchema ):
     T_TABLE    = fields.String()
     T_ACTION    = fields.Integer()
     T_RECORD_ID    = fields.Integer()
+    T_RECORD_NAME    = fields.String()
     T_CHANGE_DATE_TIME    = fields.DateTime()
     T_CONTENTS    = fields.String()
     T_VERSION    = fields.String()

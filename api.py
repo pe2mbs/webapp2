@@ -47,3 +47,4 @@ PROJECT_ROOT    = os.path.join( HERE, os.pardir )
 recordTracking  = None
 dbtables        = TableManager()
 memorytables    = TableManager()
+tables_dict     = dict()
