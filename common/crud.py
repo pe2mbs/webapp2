@@ -70,7 +70,7 @@ def getDictFromRequest( request ):
         data = None
 
     if data is None:
-        data = request.args
+        data = dict( request.args )
 
     if data is None:
         raise InvalidRequestExecption()
@@ -263,7 +263,7 @@ class CrudInterface( object ):
         self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ] )
         self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ] )
         self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ] )
-        self.registerRoute( 'select', self.selectList, methods = [ 'GET', 'POST' ] )
+        self.registerRoute( 'select', self.selectList, methods = [ 'POST' ] )
         self.registerRoute( 'lock', self.lock, methods = [ 'POST' ] )
         self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ] )
         self.registerRoute( 'count', self.recordCount, methods=['GET'])
@@ -302,7 +302,7 @@ class CrudInterface( object ):
             # TODO: can be removed once the filter is passed as a BaseFilter class
             if isinstance(item, dict):
                 item = BaseFilter.parse_obj(item)
-    
+
             operator = getattr( item, 'operator', None )
             if operator is None:
                 continue
@@ -545,6 +545,7 @@ class CrudInterface( object ):
 
         else:
             Exception( "Missing record ref" )
+
         print(record)
 
         # the .data was added after the merge from github into gitlab since
@@ -602,7 +603,7 @@ class CrudInterface( object ):
 
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
-        
+
         # the jsonification changes the dirty set of sqlalchemy
         with API.db.session.no_autoflush:
             result = self._schema_cls.jsonify( record )
@@ -611,12 +612,15 @@ class CrudInterface( object ):
             return result
 
     class SelectListBodyInput(BaseModel):
-        valueField: Optional[str]
-        labelField: Optional[str]
-        filter: Optional[Union[List[BaseFilter], dict]]
+        value: Optional[str]
+        label: Optional[str]
+        filter: Optional[Union[List[BaseFilter], List[dict]]]
         initial: Optional[Any]
         final: Optional[Any]
         childFilters: Optional[List[TableFilter]]
+
+        def __repr__(self):
+            return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} | {self.initial}, {self.final} child-filters {self.childFilters}>"
 
     @with_valid_input(body=SelectListBodyInput)
     def selectList( self, body: SelectListBodyInput ):
@@ -628,15 +632,17 @@ class CrudInterface( object ):
 
         self.checkAuthentication()
         # data = getDictFromRequest( request )
-        API.app.logger.debug( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
+        API.app.logger.info( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
 
         # TODO: here, we explicitly assume that a post request is sent with params and filter
-        value = body.valueField if body.valueField != None else self._model_cls.__field_list__[ 0 ] # primary key
-        label = body.labelField if body.labelField != None else name_field  # first field name
+        value = body.value if body.value != None else self._model_cls.__field_list__[ 0 ] # primary key
+        label = body.label if body.label != None else name_field  # first field name
         if isinstance( body.filter, dict ):
             filter = body.filter
+
         elif isinstance( body.filter, list ):
             filter = body.filter
+
         else:
             filter = []
 

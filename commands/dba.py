@@ -538,7 +538,9 @@ def copy( schema, clear, force, ignore_errors ):
         for key, value in errorTable.items():
             print( "{:40}: {} skipped.".format( key, value ) )
 
-        print( "Total Errors: {:40}: {}".format( "total",total ) )
+        print( "Total Errors: {:40}: {}".format( "total", len( errorTable ) ) )
         for skip, exc in skipped:
             print( f"{skip:40} was skipped, due { ' '.join(exc.args ) }." )
+
+        print("Total skipped: {:40}: {}".format("total", len(skipped)))
     return
