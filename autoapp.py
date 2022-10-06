@@ -23,6 +23,7 @@ import socket
 from flask import json, request, url_for, render_template, make_response, Response
 from mako.template import Template
 import werkzeug.exceptions
+from webapp2.common.error import BackendError
 
 __version__     = "1.0"
 __author__      = 'Marc Bertens-Nguyen'
@@ -102,6 +103,8 @@ def handle_exception( e: Exception ):
     """Return JSON instead of HTML for HTTP errors."""
     # start with the correct headers and status code from the error
     app.logger.error( "Error handler: {} :: {}".format( type( e ), e ) )
+    problem = ""
+    solution = ""
     if isinstance( e, werkzeug.exceptions.NotFound ):
         addresses = []
         for hostAddress in request.access_route:
@@ -114,6 +117,12 @@ def handle_exception( e: Exception ):
     if isinstance( e, werkzeug.exceptions.HTTPException ):
         response: Response = make_response( e.description, e.code )
         description = e.description
+
+    elif isinstance( e, BackendError ):
+        response: Response = make_response( str( e ), e.error_code )
+        description = str( e )
+        problem = e.problem
+        solution = e.solution
 
     elif isinstance( e, Exception ):
         response: Response = make_response( str( e ), 500 )
@@ -138,6 +147,8 @@ def handle_exception( e: Exception ):
             "message":      description,
             "codeString":   werkzeug.exceptions.HTTP_STATUS_CODES[ response.status_code ],
             "url":          request.url,
+            "problem":      problem,
+            "solution":     solution,
             "request": {
                 #"environ": request.environ,                        # This is a class
                 "path": request.path,
