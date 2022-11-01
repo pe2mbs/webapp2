@@ -27,7 +27,7 @@ import json
 import datetime
 from flask import Config as BaseConfig
 from webapp2.common.iterahead import lookahead
-from ruamel import yaml
+import yaml
 
 
 
