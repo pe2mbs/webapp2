@@ -282,6 +282,9 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
     # register table name class mapping
     API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
 
+    # register cache
+    API.cache.init_app( API.app )
+
     return API.app
 
 
