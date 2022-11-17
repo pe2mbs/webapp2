@@ -40,8 +40,6 @@ from webapp2.extensions.flask import Flask
 import webapp2.extensions.database              # noqa
 import webapp2.extensions.marshmallow           # noqa
 import webapp2.extensions.migrate               # noqa
-import webapp2.extensions.tracking              # noqa
-from webapp2.common.locking import *            # noqa
 
 
 # Try to load optional packages
@@ -218,11 +216,16 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         API.logger = API.app.logger
         sys.stderr = LoggerWriter( API.app.logger.warning )
 
+        # register cache
+        API.cache.init_app( API.app )
+
         # import tracking and locking modules
+        import webapp2.extensions.tracking              # noqa
         import webapp2.common.tracking as tracking
         API.app.logger.debug( 'registering module {0}'.format( tracking ) )
         tracking.registerApi()
 
+        from webapp2.common.locking import view, schema, menu, mixin, model # noqa
         import webapp2.common.locking as locking
         API.app.logger.debug( 'registering module {0}'.format( locking ) )
         locking.registerApi()
@@ -281,9 +284,6 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
     # register table name class mapping
     API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
-
-    # register cache
-    API.cache.init_app( API.app )
 
     return API.app
 

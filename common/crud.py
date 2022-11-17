@@ -15,6 +15,7 @@ from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
 from webapp2.common.util import getNestedAttr
+from webapp2.api import cache
 
 
 def render_query(statement, dialect=None):
@@ -78,6 +79,9 @@ def getDictFromRequest( request ):
     return data
 
 
+class Sorting(BaseModel):
+    column: str
+    direction: str
 
 class BaseFilter(BaseModel):
     operator: str
@@ -269,6 +273,9 @@ class CrudInterface( object ):
         self.registerRoute( 'count', self.recordCount, methods=['GET'])
         self.__useJWT   = use_jwt
         return
+    
+    def __repr__( self ):
+        return str(self._model_cls)
 
     @property
     def useJWT( self ):
@@ -382,31 +389,40 @@ class CrudInterface( object ):
                 API.logger.error("Child filter not working, reason: " + str(e))
         return query
 
-    def pagedList( self ):
+    class PagedListBodyInput(BaseModel):
+        filters: Optional[Union[List[BaseFilter], List[dict]]] = []
+        pageIndex: int = 0
+        pageSize: int = 1
+        sorting: Optional[Sorting]
+        cacheDeactivator: Optional[int]
+
+    @with_valid_input(body=PagedListBodyInput)
+    @cache.memoize(timeout=150)
+    def pagedList( self, body: PagedListBodyInput ):
+        if body.cacheDeactivator != None:
+            self.deleteCache()
         self.checkAuthentication()
         t1 = time.time()
-        data = getDictFromRequest( request )
         if self.__useJWT:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
-        filter = data.get( 'filters', [] )
+        filter = body.filters
         API.app.logger.debug( "Filter {}".format( filter ) )
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY count {}".format( recCount ) )
-        sorting = data.get( 'sorting', None )
-        if isinstance( sorting, dict ):
-            column = sorting.get( 'column', None )
+        sorting = body.sorting
+        if isinstance( sorting, Sorting ):
+            column = sorting.column
             if column is not None:
-                if sorting.get( 'direction', 'asc' ) == 'asc':
+                if sorting.direction == 'asc':
                     query = query.order_by( getNestedAttr( self._model_cls, column ) )
-
                 else:
                     query = query.order_by( getNestedAttr( self._model_cls, column ).desc() )
 
-        pageIndex = data.get( 'pageIndex', 0 )
-        pageSize = data.get( 'pageSize', 1 )
+        pageIndex = body.pageIndex
+        pageSize = body.pageSize
         API.app.logger.debug( "SQL-QUERY limit {} / {}".format( pageIndex, pageSize ) )
         if ( ( pageIndex * pageSize ) > recCount ):
             pageIndex = 0
@@ -472,6 +488,8 @@ class CrudInterface( object ):
         #                           record.dictionary,
         #                           locker.user )
         API.app.logger.debug( 'newRecord() => {0}'.format( record ) )
+        # delete cache
+        self.deleteCache()
         return result
 
     def recordGet( self, **kwargs ):
@@ -533,6 +551,7 @@ class CrudInterface( object ):
         API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
         response = jsonify( ok = result, reason = message )
         response.headers["USER"] = locker.user
+        self.deleteCache()
         return response
 
     def updateRecord( self, data: dict, record: any, user = None ):
@@ -545,8 +564,6 @@ class CrudInterface( object ):
 
         else:
             Exception( "Missing record ref" )
-
-        print(record)
 
         # the .data was added after the merge from github into gitlab since
         # unmarshalresult objects have a data attribute containing the result
@@ -564,6 +581,7 @@ class CrudInterface( object ):
         else:
             raise Exception( result )
 
+        self.deleteCache()
         return self.beforeCommit( record )
 
     def beforeUpdate( self, data ):
@@ -595,6 +613,7 @@ class CrudInterface( object ):
             result = self._schema_cls.jsonify( record )
             result.headers["USER"] = locker.user
             API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
+            self.deleteCache()
             return result
 
     def recordPatch( self, **kwargs ):
@@ -609,6 +628,7 @@ class CrudInterface( object ):
             result = self._schema_cls.jsonify( record )
             result.headers["USER"] = locker.user
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
+            self.deleteCache()
             return result
 
     class SelectListBodyInput(BaseModel):
@@ -623,6 +643,7 @@ class CrudInterface( object ):
             return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} | {self.initial}, {self.final} child-filters {self.childFilters}>"
 
     @with_valid_input(body=SelectListBodyInput)
+    @cache.memoize(150)
     def selectList( self, body: SelectListBodyInput ):
         name_field = self._model_cls.__field_list__[ 1 ]
         for fld in self._model_cls.__field_list__:
@@ -663,6 +684,10 @@ class CrudInterface( object ):
         API.app.logger.debug( 'selectList => count: {}'.format( len( result ) ) )
         # API.app.logger.debug( 'selectList => result: {}'.format( result ) )
         return jsonify( result )
+    
+    def deleteCache( self ):
+        cache.delete_memoized(self.pagedList)
+        cache.delete_memoized(self.selectList)
 
     def recordCount( self ):
         return jsonify( recordCount = API.db.session.query( self._model_cls ).count() )
