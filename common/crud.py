@@ -264,6 +264,7 @@ class CrudInterface( object ):
         self.registerRoute( 'primarykey', self.primaryKey, methods = [ 'GET' ] )
         self.registerRoute( 'get', self.recordGet, methods = [ 'GET' ] )
         self.registerRoute( 'get/<int:id>', self.recordGetId, methods = [ 'GET' ] )
+        self.registerRoute( 'getvalue', self.recordGetColValue, methods = [ 'POST' ] )
         self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ] )
         self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ] )
         self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ] )
@@ -515,6 +516,20 @@ class CrudInterface( object ):
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
         return result
 
+
+    class GetColValueBodyInput(BaseModel):
+        id: int
+        column: str
+
+    @with_valid_input(body=GetColValueBodyInput)
+    @cache.memoize(200)
+    def recordGetColValue( self, body: GetColValueBodyInput ):
+        record = self._model_cls.query.get( body.id )
+        API.app.logger.debug( 'Get {} value for {} record with id: {}'.format( body.column, self._model_cls, body.id ) )
+        value = getattr(record, body.column, "")
+        result = jsonify({"value": value})
+        return result
+
     def recordDelete( self, id, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
@@ -686,6 +701,7 @@ class CrudInterface( object ):
         return jsonify( result )
     
     def deleteCache( self ):
+        cache.delete_memoized(self.recordGetColValue)
         cache.delete_memoized(self.pagedList)
         cache.delete_memoized(self.selectList)
 
