@@ -653,9 +653,14 @@ class CrudInterface( object ):
         initial: Optional[Any]
         final: Optional[Any]
         childFilters: Optional[List[TableFilter]]
+        pageIndex: Optional[int] # optional for paged version
+        pageSize: Optional[int] # optional for paged version
+        firstItem: Optional[int] # optional list item to be at the top
 
         def __repr__(self):
-            return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} | {self.initial}, {self.final} child-filters {self.childFilters}>"
+            return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} \
+            | {self.initial}, {self.final} child-filters {self.childFilters} \
+            pageIndex: {self.pageIndex} pageSize: {self.pageSize} firstItem: {self.firstItem}>"
 
     @with_valid_input(body=SelectListBodyInput)
     @cache.memoize(150)
@@ -688,16 +693,34 @@ class CrudInterface( object ):
             for childFilter in body.childFilters:
                 childFilters.append(TableFilter.parse_obj(childFilter))
 
+        # apply specified filter on the query
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter, childFilters=childFilters )
-        labels = label.split(',')
+
+        pivotItem = None
+        if body.firstItem not in (None, 0) and body.pageIndex == 0:
+            try:
+                pivotItem = query.filter( getattr( self._model_cls, value ) == body.firstItem ).one()
+            except Exception as e:
+                pass
+
         # TODO if label contains comma, split --> list
         # ' '.join( [ getattr( record, l ) for l in labels ] )
+        totalItems = query.count()
+        labels = label.split(',')
+        query = query.order_by( getattr( self._model_cls, labels[0] ) )
+        if body.pageIndex is not None and body.pageSize is not None:
+            query = query.limit( body.pageSize ).offset( body.pageIndex * body.pageSize )
         result = [ { 'value': getattr( record, value ),
                      'label': ' '.join( [ str(getattr( record, l )) for l in labels ] ) }
-                                for record in query.order_by( getattr( self._model_cls, labels[0] ) ).all()
+                                for record in query.all() if getattr( record, value ) != body.firstItem
         ]
+        if pivotItem is not None:
+            result = [{'value': getattr( pivotItem, value ), 'label': ' '.join( [ str(getattr( pivotItem, l )) for l in labels ] )}] + result
+
         API.app.logger.debug( 'selectList => count: {}'.format( len( result ) ) )
         # API.app.logger.debug( 'selectList => result: {}'.format( result ) )
+        if body.pageIndex is not None and body.pageSize is not None:
+            return jsonify(  { "itemList": result, "totalItems": totalItems } )
         return jsonify( result )
     
     def deleteCache( self ):
