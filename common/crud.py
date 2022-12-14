@@ -11,6 +11,7 @@ import posixpath
 from testprocess.util.decorators import with_valid_input
 import webapp2.api as API
 from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
+from webapp2.common.error import BackendError
 from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
@@ -498,12 +499,17 @@ class CrudInterface( object ):
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         #record = self._model_cls.query.get( locker.id )
-        query = API.db.session.query( self._model_cls )
-        for column, value in locker.data.items():
-            query = query.filter(getattr(self._model_cls, column) == value)
+        try:
+            query = API.db.session.query( self._model_cls )
+            for column, value in locker.data.items():
+                query = query.filter(getattr(self._model_cls, column) == value)
 
-        record = query.one()
-        result = self._schema_cls.jsonify( record )
+            record = query.one()
+            result = self._schema_cls.jsonify( record )
+        except Exception as exc:
+            raise BackendError(exc, problem="Requested {} record does not exist in the database".format(str(self._model_cls)),
+            solution="Ensure that you request an existing item")
+
         API.app.logger.debug( 'recordGet() => {0}'.format( result ) )
         return result
 
@@ -511,8 +517,12 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'GET: {}/get/{} by {}'.format( self._uri, locker.id, locker.user ) )
-        record = self._model_cls.query.get( locker.id )
-        result = self._schema_cls.jsonify( record )
+        try:
+            record = self._model_cls.query.get( locker.id )
+            result = self._schema_cls.jsonify( record )
+        except Exception as exc:
+            raise BackendError(exc, problem="{} record with id {} does not exist in the database".format(str(self._model_cls), id),
+            solution="Ensure that you request an existing item")
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
         return result
 
