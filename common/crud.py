@@ -507,7 +507,7 @@ class CrudInterface( object ):
             record = query.one()
             result = self._schema_cls.jsonify( record )
         except Exception as exc:
-            raise BackendError(exc, problem="Requested {} record does not exist in the database".format(str(self._model_cls)),
+            raise BackendError(exc, problem="Requested {} record does not exist in the database".format( self._model_cls.__name__ ),
             solution="Ensure that you request an existing item")
 
         API.app.logger.debug( 'recordGet() => {0}'.format( result ) )
@@ -521,7 +521,7 @@ class CrudInterface( object ):
             record = self._model_cls.query.get( locker.id )
             result = self._schema_cls.jsonify( record )
         except Exception as exc:
-            raise BackendError(exc, problem="{} record with id {} does not exist in the database".format(str(self._model_cls), id),
+            raise BackendError(exc, problem="{} record with id {} does not exist in the database".format( self._model_cls.__name__, id ),
             solution="Ensure that you request an existing item")
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
         return result
