@@ -34,7 +34,7 @@ def registerExtensions( module ):
     API.mm.init_app( API.app )
     API.migrate.init_app( API.app, API.db, render_as_batch = True )
     # register middleware here since API.app is known now
-    from webapp2.extensions import middleware # dont delete
+    from webapp.extensions import middleware # dont delete
     # Optional extensions
     EXTENSIONS = API.app.config.get( 'USE_EXTENSIONS', { "BCRYPT": False,
                                                          "CACHE": False,

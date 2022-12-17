@@ -19,12 +19,12 @@
 #   gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
 from flask import Blueprint, request, jsonify
-import webapp2.api as API
-from webapp2.common.crud import CrudInterface, RecordLock
+import webapp.api as API
+from webapp.common.crud import CrudInterface, RecordLock
 import traceback
-from webapp2.common.locking.model import RecordLocks
-from webapp2.common.locking.schema import RecordLocksSchema
-from webapp2.common.locking.mixin import RecordLocksViewMixin
+from webapp.common.locking.model import RecordLocks
+from webapp.common.locking.schema import RecordLocksSchema
+from webapp.common.locking.mixin import RecordLocksViewMixin
 
 
 lockingApi = Blueprint( 'lockingApi', __name__ )
@@ -36,7 +36,7 @@ def registerApi( *args ):
     API.app.logger.info( 'Register RecordLocks routes' )
     API.app.register_blueprint( lockingApi )
     try:
-        import webapp2.common.locking.entry_points  as EP
+        import webapp.common.locking.entry_points  as EP
         if hasattr( EP, 'entryPointApi' ):
             API.app.logger.info( 'Register RecordLocks entrypoint routes' )
             API.app.register_blueprint( EP.entryPointApi )

@@ -24,7 +24,7 @@ from flask import json, request, url_for, render_template, make_response, Respon
 from mako.template import Template
 import werkzeug.exceptions
 from webapp.common.error import BackendError
-
+import werkzeug.http
 
 app = None
 saved_out = None
@@ -141,7 +141,7 @@ def handle_exception( e: Exception ):
             "code":         response.status_code,
             "name":         str( type( e ) ),
             "message":      description,
-            "codeString":   werkzeug.exceptions.HTTP_STATUS_CODES[ response.status_code ],
+            "codeString":   werkzeug.http.HTTP_STATUS_CODES[ response.status_code ],
             "url":          request.url,
             "problem":      problem,
             "solution":     solution,
@@ -182,7 +182,7 @@ def handle_exception( e: Exception ):
                 "is_multithread": request.is_multithread,
                 "is_run_once": request.is_run_once,
                 "is_secure": request.is_secure,
-                "json": request.json,
+                # "json": request.json,
             },
             "traceback":    traceback.format_exc().splitlines( keepends = False )
         }

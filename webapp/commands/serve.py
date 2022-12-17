@@ -10,6 +10,7 @@ from flask.cli import ( pass_script_info,
                         _validate_key,
                         get_debug_flag,
                         show_server_banner )
+from threading import Thread, Lock
 
 def get_env():
     return os.environ.get( 'FLASK_ENV', 'DEVELOPMENT' )
@@ -18,6 +19,72 @@ def get_env():
 @click.group( cls = AppGroup )
 def serve():
     """Serve commands"""
+
+
+class DispatchingApp( object ):
+    """This class was removed from the standard Flask version 2.x, the webapp startup depends on it
+
+    Special application that dispatches to a Flask application which
+    is imported by name in a background thread.  If an error happens
+    it is recorded and shown as part of the WSGI handling which in case
+    of the Werkzeug debugger means that it shows up in the browser.
+    """
+
+    def __init__(self, loader):
+        self.loader = loader
+        self._app = None
+        self._lock = Lock()
+        self._bg_loading_exc = None
+        self._load_unlocked()
+
+    def _load_in_background(self):
+        # Store the Click context and push it in the loader thread so
+        # script_info is still available.
+        ctx = click.get_current_context(silent=True)
+
+        def _load_app():
+            __traceback_hide__ = True  # noqa: F841
+
+            with self._lock:
+                if ctx is not None:
+                    click.globals.push_context(ctx)
+
+                try:
+                    self._load_unlocked()
+                except Exception as e:
+                    self._bg_loading_exc = e
+
+        t = Thread(target=_load_app, args=())
+        t.start()
+
+    def _flush_bg_loading_exception(self):
+        __traceback_hide__ = True  # noqa: F841
+        exc = self._bg_loading_exc
+
+        if exc is not None:
+            self._bg_loading_exc = None
+            raise exc
+
+    def _load_unlocked(self):
+        __traceback_hide__ = True  # noqa: F841
+        self._app = rv = self.loader()
+        self._bg_loading_exc = None
+        return rv
+
+    def __call__(self, environ, start_response):
+        __traceback_hide__ = True  # noqa: F841
+        if self._app is not None:
+            return self._app(environ, start_response)
+
+        self._flush_bg_loading_exception()
+        with self._lock:
+            if self._app is not None:
+                rv = self._app
+
+            else:
+                rv = self._load_unlocked()
+
+            return rv(environ, start_response)
 
 
 @serve.command( 'dev',
@@ -44,15 +111,11 @@ def serve():
                default = None,
                help = 'Enable or disable the debugger. By default the debugger '
                       'is active if debug is enabled.')
-@click.option( '--eager-loading/--lazy-loader',
-               default = None,
-               help = 'Enable or disable eager loading. By default eager '
-                      'loading is enabled if the reloader is disabled.' )
 @click.option( '--with-threads/--without-threads',
                default = True,
                help = 'Enable or disable multithreading.' )
 @pass_script_info
-def dev( info, hostname, port, use_reloader, use_debugger, eager_loading, with_threads, cert ):
+def dev( info, hostname, port, use_reloader, use_debugger, with_threads, cert ):
     """Run a local development server.
 
     This server is for development purposes only. It does not provide
@@ -62,71 +125,31 @@ def dev( info, hostname, port, use_reloader, use_debugger, eager_loading, with_t
     FLASK_ENV=development or FLASK_DEBUG=1.
     """
     # run_simple( hostname = host, port = port, use_reloader = reload, use_debugger = debugger )
-    # # application: "WSGIApplication",
-    # # use_evalex: bool = True,
-    # # extra_files: t.Optional[t.Iterable[str]] = None,
-    # # exclude_patterns: t.Optional[t.Iterable[str]] = None,
-    # # reloader_interval: int = 1,
-    # # reloader_type: str = "auto",
-    # # threaded: bool = False,
-    # # processes: int = 1,
-    # # request_handler: t.Optional[t.Type[WSGIRequestHandler]] = None,
-    # # static_files: t.Optional[t.Dict[str, t.Union[str, t.Tuple[str, str]]]] = None,
-    # # passthrough_errors: bool = False,
-    # # ssl_context: t.Optional[_TSSLContextArg] = None, )
-    #
-    # debug = get_debug_flag()
-    #
-    # if reload is None:
-    #     reload = debug
-    #
-    # if debugger is None:
-    #     debugger = debug
-    #
-    # if eager_loading is None:
-    #     eager_loading = not reload
-    #
-    # show_server_banner( get_env(), debug )
-    # # app = DispatchingApp( info.load_app, use_eager_loading = eager_loading )
-    #
-    # applic      = info.load_app()
-    # if host is None:
-    #     host        = applic.config.get( 'HOST', 'localhost' )
-    #
-    # if port is None:
-    #     port        = applic.config.get( 'PORT', 5000 )
-    #
-    # else:
-    #     port = int( port )
-    #
-    # API.logger.info( "Serving application on http://{}:{}".format( host, port ) )
-    # # appPath     = applic.config.get( 'APP_PATH', os.curdir )
-    # # appApiMod   = applic.config.get( 'API_MODULE', '' )
-    # # As those files may change, but are only loaded when the application starts
-    # # we monitor them, so that the application restart when they change
-    # extra_files = applic.config.get( 'EXTRA_FILES', [] )
-    # appPath     = applic.config.get( 'APP_PATH', os.curdir )
-    # appApiMod   = applic.config.get( 'API_MODULE', '' )
-    # extra_files.extend( [ os.path.join( appPath, appApiMod, 'menu.yaml' ),
-    #                       os.path.join( appPath, appApiMod, 'release.yaml' ) ] )
-    # if API.socketio is not None:
-    #     app.debug = True
-    #     API.socketio.run( app, host, port,
-    #                       debug = debugger,
-    #                       use_reloader = reload,
-    #                       extra_files = extra_files
-    #                     )
-    # else:
-    #     from werkzeug.serving import run_simple
-    #     run_simple( host, port, app,
-    #                 use_reloader = reload,
-    #                 reloader_type = 'stat',
-    #                 use_debugger = debugger,
-    #                 threaded = with_threads,
-    #                 ssl_context = cert,
-    #                 extra_files = extra_files )
-    #
-    applic = current_app
+    # application: "WSGIApplication",
+    # use_evalex: bool = True,
+    # extra_files: t.Optional[t.Iterable[str]] = None,
+    # exclude_patterns: t.Optional[t.Iterable[str]] = None,
+    # reloader_interval: int = 1,
+    # reloader_type: str = "auto",
+    # threaded: bool = False,
+    # processes: int = 1,
+    # request_handler: t.Optional[t.Type[WSGIRequestHandler]] = None,
+    # static_files: t.Optional[t.Dict[str, t.Union[str, t.Tuple[str, str]]]] = None,
+    # passthrough_errors: bool = False,
+    # ssl_context: t.Optional[_TSSLContextArg] = None, )
+
+    debug = get_debug_flag()
+
+    if use_reloader is None:
+        use_reloader = debug
+
+    if use_debugger is None:
+        use_debugger = debug
+
+    show_server_banner( get_env(), debug )
+    app = DispatchingApp( info.load_app )
+
+    applic      = info.load_app()
     if hostname is None:
         hostname    = applic.config.get( 'HOST', 'localhost' )
 
@@ -134,77 +157,34 @@ def dev( info, hostname, port, use_reloader, use_debugger, eager_loading, with_t
         port        = applic.config.get( 'PORT', 5000 )
 
     else:
-        port        = int( port )
+        port = int( port )
 
+    API.logger.info( "Serving application on http://{}:{}".format( hostname, port ) )
+    # appPath     = applic.config.get( 'APP_PATH', os.curdir )
+    # appApiMod   = applic.config.get( 'API_MODULE', '' )
+    # As those files may change, but are only loaded when the application starts
+    # we monitor them, so that the application restart when they change
+    extra_files = applic.config.get( 'EXTRA_FILES', [] )
     appPath     = applic.config.get( 'APP_PATH', os.curdir )
     appApiMod   = applic.config.get( 'API_MODULE', '' )
-    extra_files = applic.config.get( 'EXTRA_FILES', [] )
     extra_files.extend( [ os.path.join( appPath, appApiMod, 'menu.yaml' ),
                           os.path.join( appPath, appApiMod, 'release.yaml' ) ] )
-    static_files    = applic.config.get( 'STATIC_FILES', [] )
-    use_evalex = True
-    if not isinstance(port, int):
-        port        = applic.config.get( 'PORT', 5000 )
-
-    if static_files:
-        from werkzeug.middleware.shared_data import SharedDataMiddleware
-        applic = SharedDataMiddleware(applic, static_files)
-
-    if use_debugger:
-        from werkzeug.debug import DebuggedApplication
-        applic = DebuggedApplication(applic, evalex=use_evalex)
-
-    if not werkzeug.serving.is_running_from_reloader():
-        s = werkzeug.serving.prepare_socket( hostname, port )
-        fd = s.fileno()
-        # Silence a ResourceWarning about an unclosed socket. This object is no longer
-        # used, the server will create another with fromfd.
-        s.detach()
-        os.environ["WERKZEUG_SERVER_FD"] = str(fd)
-
+    if API.socketio is not None:
+        app.debug = True
+        API.socketio.run( app, hostname, port,
+                          debug = use_debugger,
+                          use_reloader = use_reloader,
+                          extra_files = extra_files
+                        )
     else:
-        fd = int(os.environ["WERKZEUG_SERVER_FD"])
-
-    threaded = False
-    processes = 1
-    request_handler = None
-    passthrough_errors = False
-    ssl_context = None
-    exclude_patterns = None
-    reloader_interval = 1
-    reloader_type = "auto"
-
-    if applic.config.get( "BEHIND_PROXY", False ):
-        applic = ProxyFix( applic, x_for=1, x_proto=1, x_host=1, x_prefix=1 )
-
-    srv = werkzeug.serving.make_server(
-        hostname,
-        port,
-        applic,
-        threaded,
-        processes,
-        request_handler,
-        passthrough_errors,
-        ssl_context,
-        fd=fd,
-    )
-
-    if not werkzeug.serving.is_running_from_reloader():
-        srv.log_startup()
-        werkzeug.serving._log("info", werkzeug.serving._ansi_style("Press CTRL+C to quit", "yellow"))
-
-    if use_reloader:
-        from werkzeug._reloader import run_with_reloader
-
-        run_with_reloader(
-            srv.serve_forever,
-            extra_files=extra_files,
-            exclude_patterns=exclude_patterns,
-            interval=reloader_interval,
-            reloader_type=reloader_type,
-        )
-    else:
-        srv.serve_forever()
+        from werkzeug.serving import run_simple
+        run_simple( hostname, port, app,
+                    use_reloader = use_reloader,
+                    reloader_type = 'stat',
+                    use_debugger = use_debugger,
+                    threaded = with_threads,
+                    ssl_context = cert,
+                    extra_files = extra_files )
 
     return
 
@@ -220,7 +200,7 @@ def dev( info, hostname, port, use_reloader, use_debugger, eager_loading, with_t
 @pass_script_info
 def production( info, host, port, *args, **kwargs ):
     import waitress
-    app = DispatchingApp( info.load_app, use_eager_loading = True )
+    app = DispatchingApp( info.load_app )
     applic = info.load_app()
     host = applic.config.get( 'HOST', host )
     port = applic.config.get( 'PORT', port )
@@ -240,7 +220,7 @@ def production( info, host, port, *args, **kwargs ):
 @pass_script_info
 def staged( info, host, port, *args, **kwargs ):
     import waitress
-    app = DispatchingApp( info.load_app, use_eager_loading = True )
+    app = DispatchingApp( info.load_app )
     applic = info.load_app()
     host = applic.config.get( 'HOST', host )
     port = applic.config.get( 'PORT', port )
@@ -266,23 +246,19 @@ def staged( info, host, port, *args, **kwargs ):
                callback=_validate_key,
                expose_value = False,
                help = 'The key file to use when specifying a certificate.' )
-@click.option( '--reload/--no-reload',
+@click.option( '--use_reloader/--no-reload',
                default = None,
                help = 'Enable or disable the reloader. By default the reloader '
                       'is active if debug is enabled.')
-@click.option( '--debugger/--no-debugger',
+@click.option( '--use_debugger/--no-debugger',
                default = None,
                help = 'Enable or disable the debugger. By default the debugger '
                       'is active if debug is enabled.')
-@click.option( '--eager-loading/--lazy-loader',
-               default = None,
-               help = 'Enable or disable eager loading. By default eager '
-                      'loading is enabled if the reloader is disabled.')
 @click.option( '--with-threads/--without-threads',
                default = True,
                help = 'Enable or disable multithreading.')
 @pass_script_info
-def ssl( info, host, port, reload, debugger, eager_loading, with_threads, cert, key ):
+def ssl( info, host, port, use_reloader, use_debugger, with_threads, cert ):
     """Run a local development server.
 
     This server is for development purposes only. It does not provide
@@ -292,17 +268,14 @@ def ssl( info, host, port, reload, debugger, eager_loading, with_threads, cert, 
     FLASK_ENV=development or FLASK_DEBUG=1.
     """
     debug = get_debug_flag()
-    if reload is None:
-        reload = debug
+    if use_reloader is None:
+        use_reloader = debug
 
-    if debugger is None:
-        debugger = debug
+    if use_debugger is None:
+        use_debugger = debug
 
-    if eager_loading is None:
-        eager_loading = not reload
-
-    show_server_banner( get_env(), debug, info.app_import_path, eager_loading )
-    app = DispatchingApp( info.load_app, use_eager_loading = eager_loading )
+    show_server_banner( get_env(), debug )
+    app = DispatchingApp( info.load_app )
     applic      = info.load_app()
     if cert is None:
         ssl = applic.config.get( 'SSL', {} )
@@ -335,9 +308,9 @@ def ssl( info, host, port, reload, debugger, eager_loading, with_threads, cert, 
     from werkzeug.serving import run_simple
     API.logger.info( "Serving application on https://{}:{}".format( host, port ) )
     run_simple( host, port, app,
-                use_reloader = reload,
+                use_reloader = use_reloader,
                 reloader_type = 'stat',
-                use_debugger = debugger,
+                use_debugger = use_debugger,
                 threaded = with_threads,
                 ssl_context = cert,
                 extra_files = extra_files )

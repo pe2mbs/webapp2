@@ -36,7 +36,7 @@ def registerApi( *args ):
     API.app.logger.info( 'Register Tracking routes' )
     API.app.register_blueprint( trackingApi )
     try:
-        import webapp2.common.tracking.entry_points  as EP
+        import webapp.common.tracking.entry_points  as EP
         if hasattr( EP, 'entryPointApi' ):
             API.app.logger.info( 'Register Tracking entrypoint routes' )
             API.app.register_blueprint( EP.entryPointApi )

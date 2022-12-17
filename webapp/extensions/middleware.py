@@ -19,8 +19,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-import webapp2.api as API
-from webapp2.api import app
+import webapp.api as API
+from webapp.api import app
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import attributes as history_attributes
 from flask import request
@@ -33,12 +33,13 @@ from flask import request
 
 @app.after_request
 def after_request_func(response):
-    if response.status_code >= 400:
+    if response.status_code >= 400 or "application/json" not in request.headers:
         return response
     try:
         requestData = request.json
         if requestData is None:
             requestData = request.args
+
         # enable tracking by default, however, this can be set to false
         # either by request or from the request handler through the response
         disableTracking = False
@@ -46,11 +47,11 @@ def after_request_func(response):
             disableTracking = True
         if response.json != None and "tracking" in response.json and response.json["tracking"] in (False, str(False)):
             disableTracking = True
-        
+
         # TODO: sqlalchemy does not seem to be aware of cascade deletion before commits
         # so we will only track the item that is deleted by user and not the cascade
         # deleted items
-        
+
         # apply tracking on changed records
         user = response.headers["USER"] if ("USER" in  response.headers and \
                 response.headers["USER"] not in (None, "")) else "backend"
@@ -64,7 +65,7 @@ def after_request_func(response):
             modifiedRecords = [obj for obj in API.db.session.dirty if API.db.session.is_modified(obj)]
         if API.db.session.new:
             newRecords = API.db.session.new
-        
+
         # commit or at least try to commit all changes
         # API.db.session.commit()
 
