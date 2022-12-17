@@ -89,6 +89,5 @@ class RecordLockedException( HTTPException ):
         return
 
 
-
 class InvalidModel( Exception ):
     pass

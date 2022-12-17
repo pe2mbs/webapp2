@@ -19,8 +19,11 @@
 #
 import traceback
 import sys
-from flask import json, request, make_response, Response
+import socket
+from flask import json, request, url_for, render_template, make_response, Response
+from mako.template import Template
 import werkzeug.exceptions
+from webapp2.common.error import BackendError
 
 
 app = None
@@ -57,15 +60,65 @@ finally:
     sys.stdout = saved_out
 
 
+def has_no_empty_params(rule):
+    defaults = rule.defaults if rule.defaults is not None else ()
+    arguments = rule.arguments if rule.arguments is not None else ()
+    return len(defaults) >= len(arguments)
+
+
+@app.route("/site-map")
+def site_map():
+    links = []
+    for rule in app.url_map.iter_rules():
+        # Filter out rules we can't navigate to in a browser
+        # and rules that require parameters
+        if "GET" in rule.methods and has_no_empty_params(rule):
+            url = url_for(rule.endpoint, **(rule.defaults or {}))
+            links.append((url, rule.endpoint))
+
+    # links is now a list of url, endpoint tuples
+    # return "<br/>".join( [ f"{url}  = {endpoint}" for url, endpoint in links ] )
+    return Template( filename = os.path.join( os.path.dirname( __file__), 'sitemap.html' ) ).render( links = links )
+
+
+def getHostByAddress( host_address ):
+    result = []
+    for item in socket.gethostbyaddr( host_address ):
+        if isinstance( item, str ):
+            result.append( item )
+        elif isinstance( item, ( list, tuple ) ):
+            result.append( "|".join( item ) )
+        elif isinstance( item, int ):
+            result.append( str( item ) )
+
+    return ", ".join( result )
+
+
 @app.errorhandler( Exception )
 def handle_exception( e: Exception ):
     """Return JSON instead of HTML for HTTP errors."""
     # start with the correct headers and status code from the error
     app.logger.error( "Error handler: {} :: {}".format( type( e ), e ) )
+    problem = ""
+    solution = ""
+    if isinstance( e, werkzeug.exceptions.NotFound ):
+        addresses = []
+        for hostAddress in request.access_route:
+            addresses.append( "{} = {}".format( hostAddress, getHostByAddress( hostAddress ) ) )
+
+        e.description += "\nRequest URL {}\nSource address {}".format( request.url, ", ".join( addresses ) )
+        response: Response = make_response( e.description, e.code )
+        description = e.description
     print( "Error handler: {} :: {}".format( type( e ), e ) )
     if isinstance( e, werkzeug.exceptions.HTTPException ):
         response: Response = make_response( e.description, e.code )
         description = e.description
+
+    elif isinstance( e, BackendError ):
+        response: Response = make_response( str( e ), e.error_code )
+        description = str( e )
+        problem = e.problem
+        solution = e.solution
 
     elif isinstance( e, Exception ):
         response: Response = make_response( str( e ), 500 )
@@ -77,6 +130,11 @@ def handle_exception( e: Exception ):
 
     app.logger.error( traceback.format_exc() )
     response_data = {}
+    if e is MemoryError:
+        # This is to shutdown the application to clean up the memory
+        # and let Process monitor restart the application.
+        raise SystemExit
+
     try:
         # replace the body with JSON
         response_data = {
@@ -85,6 +143,8 @@ def handle_exception( e: Exception ):
             "message":      description,
             "codeString":   werkzeug.exceptions.HTTP_STATUS_CODES[ response.status_code ],
             "url":          request.url,
+            "problem":      problem,
+            "solution":     solution,
             "request": {
                 #"environ": request.environ,                        # This is a class
                 "path": request.path,
