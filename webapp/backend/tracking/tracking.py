@@ -1,11 +1,9 @@
 import json
 from datetime import datetime
 from typing import Union
-
-from numpy import record
 from webapp.common.jsonenc import JsonEncoder
 import webapp.api as API
-from webapp.common.tracking.model import Tracking
+from webapp.backend.tracking.model import Tracking
 from sqlalchemy.orm import attributes as history_attributes
 from sqlalchemy import text
 

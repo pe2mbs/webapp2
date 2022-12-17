@@ -220,20 +220,15 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         # register cache
         API.cache.init_app( API.app )
 
-        # import tracking and locking modules
-        import webapp.extensions.tracking              # noqa
-        import webapp.common.tracking as tracking
-        API.app.logger.debug( 'registering module {0}'.format( tracking ) )
-        tracking.registerApi()
-
-        from webapp.common.locking import view, schema, menu, mixin, model # noqa
-        import webapp.common.locking as locking
-        API.app.logger.debug( 'registering module {0}'.format( locking ) )
-        locking.registerApi()
+        # import tracking, locking and feedback standard modules
+        import webapp.backend
+        for be_module in webapp.backend.modules:
+            API.app.logger.debug( f'registering module {be_module}' )
+            be_module.registerApi()
 
         # register other modules of generated and non generated classes
         module = None
-        API.logger.info( "Current process ID: {}".format( os.getpid() ) )
+        API.logger.info( f"Current process ID: {os.getpid()}" )
         sys.path.append( root_path )
         API.app.json_encoder = WebAppJsonEncoder
         registerExtensions( module )

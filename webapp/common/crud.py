@@ -5,62 +5,18 @@ from pydantic import BaseModel
 import traceback
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError   # noqa
 from flask.globals import LocalProxy
 import posixpath
 from webapp.common.decorators import with_valid_input
 import webapp.api as API
-from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
+from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from webapp.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
 from webapp.common.util import getNestedAttr
+import webapp.extensions.cache              # noqa
 from webapp.api import cache
-
-
-def render_query(statement, dialect=None):
-    """
-    Generate an SQL expression string with bound parameters rendered inline
-    for the given SQLAlchemy statement.
-    WARNING: This method of escaping is insecure, incomplete, and for debugging
-    purposes only. Executing SQL statements with inline-rendered user values is
-    extremely insecure.
-    Based on http://stackoverflow.com/questions/5631078/sqlalchemy-print-the-actual-query
-    """
-    if isinstance(statement, Query):
-        if dialect is None:
-            dialect = statement.session.bind.dialect
-
-        statement = statement.statement
-
-    elif dialect is None:
-        dialect = statement.bind.dialect
-
-    class LiteralCompiler(dialect.statement_compiler):
-
-        def visit_bindparam(self, bindparam, within_columns_clause=False,
-                            literal_binds=False, **kwargs):
-            return self.render_literal_value(bindparam.value, bindparam.type)
-
-        def render_array_value(self, val, item_type):
-            if isinstance(val, list):
-                return "{%s}" % ",".join([self.render_array_value(x, item_type) for x in val])
-
-            return self.render_literal_value(val, item_type)
-
-        def render_literal_value(self, value, type_):
-            if isinstance(value, int):
-                return str(value)
-
-            elif isinstance(value, (str, date, datetime, timedelta)):
-                return "'%s'" % str(value).replace("'", "''")
-
-            elif isinstance(value, list):
-                return "'{%s}'" % (",".join([self.render_array_value(x, type_.item_type) for x in value]))
-
-            return super(LiteralCompiler, self).render_literal_value(value, type_)
-
-    return LiteralCompiler(dialect, statement).process(statement)
 
 
 def getDictFromRequest( request ):
@@ -83,6 +39,7 @@ class Sorting(BaseModel):
     column: str
     direction: str
 
+
 class BaseFilter(BaseModel):
     operator: str
     column: str
@@ -97,7 +54,9 @@ class TableFilter(BaseModel):
     filters: List[BaseFilter]
     childFilters: List[TableFilter] = []
 
+
 TableFilter.update_forward_refs()
+
 
 class RecordLock( object ):
     def __init__( self, table, record_id ):
@@ -410,7 +369,7 @@ class CrudInterface( object ):
         filter = body.filters
         API.app.logger.debug( "Filter {}".format( filter ) )
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
-        API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
+        API.app.logger.debug( "SQL-QUERY : {}".format( str( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY count {}".format( recCount ) )
         sorting = body.sorting

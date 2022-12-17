@@ -1,6 +1,6 @@
 #
 #   Python backend and Angular frontend code generation by gencrud
-#   Copyright (C) 2018-2021 Marc Bertens-Nguyen m.bertens@pe2mbs.nl
+#   Copyright (C) 2018-2023 Marc Bertens-Nguyen m.bertens@pe2mbs.nl
 #
 #   This library is free software; you can redistribute it and/or modify
 #   it under the terms of the GNU Library General Public License GPL-2.0-only
@@ -18,14 +18,13 @@
 #
 #      gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
-from webapp.common.tracking.schema import *
-from webapp.common.tracking.model import *
-from webapp.common.tracking.view import *
+from webapp.backend.locking.schema import *
+from webapp.backend.locking.model import *
+from webapp.backend.locking.view import *
 try:
-    from webapp2.common.tracking.constants import *
+    from webapp2.common.locking.constants import *
 
 except ImportError:
     pass
 
-import webapp.common.tracking.tracking
 

@@ -18,13 +18,14 @@
 #
 #      gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
-from webapp.common.locking.schema import *
-from webapp.common.locking.model import *
-from webapp.common.locking.view import *
+from webapp.backend.tracking.schema import *
+from webapp.backend.tracking.model import *
+from webapp.backend.tracking.view import *
 try:
-    from webapp2.common.locking.constants import *
+    from webapp.backend.tracking.constants import *
 
 except ImportError:
     pass
 
+import webapp.backend.tracking.tracking
 

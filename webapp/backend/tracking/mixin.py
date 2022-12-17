@@ -4,16 +4,15 @@ import json
 import dateutil.parser
 from flask_jwt_extended import get_jwt_identity
 import webapp.api as API
-from webapp.common.crud import getDictFromRequest, render_query
+from webapp.common.crud import getDictFromRequest
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
-from webapp.common.tracking import constant
-from webapp.common.tracking.model import Tracking
+from webapp.backend.tracking import constant
+from webapp.backend.tracking.model import Tracking
 
 
 class TrackingViewMixin( object ):
     C_NOT_RESTORE_MESSAGE = "Could not restore record"
-
 
     def __init__( self ):
         self.registerRoute( 'retrieve', self.retrieveRecords, methods = [ 'POST' ] )
@@ -25,6 +24,7 @@ class TrackingViewMixin( object ):
         if API.use_jwt:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'GET: {}/rollback by {}'.format( self._uri, user_info ) )
+
         data = getDictFromRequest( request )
         API.app.logger.debug( data )
         query = API.db.session.query( Tracking )
@@ -39,7 +39,9 @@ class TrackingViewMixin( object ):
                     for key, value in recordDict.items():
                         if hasattr( restoreRecord, key ):
                             setattr( restoreRecord, key, value )
+
                     API.db.session.add( restoreRecord )
+
                 API.db.session.delete( record )
                 API.db.session.commit()
 
@@ -95,6 +97,7 @@ class TrackingViewMixin( object ):
         if API.use_jwt:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'GET: {}/retrieve by {}'.format( self._uri, user_info ) )
+
         data = getDictFromRequest( request )
         API.app.logger.debug( data )
         query = API.db.session.query( Tracking )
@@ -103,7 +106,7 @@ class TrackingViewMixin( object ):
         API.app.logger.debug( data )
         query = query.filter( Tracking.T_CHANGE_DATE_TIME >= data[ 'T_CHANGE_DATE_TIME' ] )
         query = query.order_by( Tracking.T_CHANGE_DATE_TIME )
-        API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
+        API.app.logger.debug( "SQL-QUERY : {}".format( str( query ) ) )
         records = query.all()
         API.app.logger.debug( "Result: {}".format( records ) )
         return self._schema_list_cls.jsonify( records )

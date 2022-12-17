@@ -21,7 +21,7 @@
 import webapp.api as API
 from webapp.common.dbmem import DbBaseMemory
 from webapp.common.crudmixin import CrudModelMixin
-from webapp.common.tracking.schema import TrackingSchema
+from webapp.backend.tracking.schema import TrackingSchema
 
 
 class Tracking( API.db.Model, CrudModelMixin ):
@@ -42,8 +42,6 @@ class Tracking( API.db.Model, CrudModelMixin ):
     T_CONTENTS           = API.db.Column( "t_contents", API.db.LONGTEXT, nullable = True )
     T_VERSION            = API.db.Column( "t_version", API.db.TEXT, nullable = False )
 
-
-
     def memoryInstance( self ):
         return TrackingMemory( self )
 
@@ -56,4 +54,4 @@ class TrackingMemory( DbBaseMemory ):
     __tablename__       = 'tracking'
 
 
-# API.memorytables.register( TrackingMemory )
+API.memorytables.register( TrackingMemory )

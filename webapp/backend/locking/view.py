@@ -21,10 +21,9 @@
 from flask import Blueprint, request, jsonify
 import webapp.api as API
 from webapp.common.crud import CrudInterface, RecordLock
-import traceback
-from webapp.common.locking.model import RecordLocks
-from webapp.common.locking.schema import RecordLocksSchema
-from webapp.common.locking.mixin import RecordLocksViewMixin
+from webapp.backend.locking.model import RecordLocks
+from webapp.backend.locking.schema import RecordLocksSchema
+from webapp.backend.locking.mixin import RecordLocksViewMixin
 
 
 lockingApi = Blueprint( 'lockingApi', __name__ )
@@ -35,23 +34,6 @@ def registerApi( *args ):
     # Set the logger for the users module
     API.app.logger.info( 'Register RecordLocks routes' )
     API.app.register_blueprint( lockingApi )
-    try:
-        import webapp.common.locking.entry_points  as EP
-        if hasattr( EP, 'entryPointApi' ):
-            API.app.logger.info( 'Register RecordLocks entrypoint routes' )
-            API.app.register_blueprint( EP.entryPointApi )
-
-        if hasattr( EP, 'registerWebSocket' ):
-            EP.registerWebSocket()
-
-    except ModuleNotFoundError as exc:
-        if exc.name != 'webapp2.common.locking.entry_points':
-            API.app.logger.error( traceback.format_exc() )
-
-    except Exception:
-        API.app.logger.error( traceback.format_exc() )
-
-    # TODO: Here we need to add dynamically the menus for this module
     return
 
 
@@ -82,7 +64,6 @@ class RecordLocksCurdInterface( CrudInterface, RecordLocksViewMixin ):
 
         if hasattr( RecordLocksViewMixin, 'beforeUpdate' ):
             record = RecordLocksViewMixin.beforeUpdate( self, record )
-
 
         return record
 

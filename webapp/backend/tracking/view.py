@@ -22,9 +22,9 @@ from flask import Blueprint, request, jsonify
 import webapp.api as API
 from webapp.common.crud import CrudInterface, RecordLock
 import traceback
-from webapp.common.tracking.model import Tracking
-from webapp.common.tracking.schema import TrackingSchema
-from webapp.common.tracking.mixin import TrackingViewMixin
+from webapp.backend.tracking.model import Tracking
+from webapp.backend.tracking.schema import TrackingSchema
+from webapp.backend.tracking.mixin import TrackingViewMixin
 
 
 trackingApi = Blueprint( 'trackingApi', __name__ )
@@ -35,25 +35,7 @@ def registerApi( *args ):
     # Set the logger for the users module
     API.app.logger.info( 'Register Tracking routes' )
     API.app.register_blueprint( trackingApi )
-    try:
-        import webapp.common.tracking.entry_points  as EP
-        if hasattr( EP, 'entryPointApi' ):
-            API.app.logger.info( 'Register Tracking entrypoint routes' )
-            API.app.register_blueprint( EP.entryPointApi )
-
-        if hasattr( EP, 'registerWebSocket' ):
-            EP.registerWebSocket()
-
-    except ModuleNotFoundError as exc:
-        if exc.name != 'webapp2.common.tracking.entry_points':
-            API.app.logger.error( traceback.format_exc() )
-
-    except Exception:
-        API.app.logger.error( traceback.format_exc() )
-
-    # TODO: Here we need to add dynamically the menus for this module
     return
-
 
 
 class TrackingRecordLock( RecordLock ):
