@@ -18,9 +18,9 @@
 #
 #   gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
-import webapp2.api as API
+import webapp.api as API
 from marshmallow import fields, pre_load, post_dump
-from webapp2.common.convert import value2Label, utcDateString2Local
+from webapp.common.convert import value2Label, utcDateString2Local
 
 
 class TrackingSchema( API.mm.SQLAlchemySchema ):

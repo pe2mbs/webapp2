@@ -27,7 +27,7 @@ import traceback
 import importlib
 
 from inspect import signature
-from webapp.version import version_no, date, author
+from webapp.version import version, date, author
 import webapp.api as API
 from webapp.common.log import loadLoggingFile, updateLogging, LoggerWriter, LOGGING_INFO
 from webapp.common.util import ResolveRootPath
@@ -221,13 +221,13 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         API.cache.init_app( API.app )
 
         # import tracking and locking modules
-        import webapp2.extensions.tracking              # noqa
-        import webapp2.common.tracking as tracking
+        import webapp.extensions.tracking              # noqa
+        import webapp.common.tracking as tracking
         API.app.logger.debug( 'registering module {0}'.format( tracking ) )
         tracking.registerApi()
 
-        from webapp2.common.locking import view, schema, menu, mixin, model # noqa
-        import webapp2.common.locking as locking
+        from webapp.common.locking import view, schema, menu, mixin, model # noqa
+        import webapp.common.locking as locking
         API.app.logger.debug( 'registering module {0}'.format( locking ) )
         locking.registerApi()
 

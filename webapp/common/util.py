@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 import os
+from functools import reduce
 from itertools import tee, islice, zip_longest
 from dateutil.parser import parse
 from dateutil.tz import gettz
@@ -158,3 +159,17 @@ def value2Label( dictionary, value ):
 
 def utcDateString2Local( value, fmt = '%Y-%m-%d' ):
     return parse( value ).astimezone( to_zone ).date().strftime( fmt )
+
+
+def getNestedAttr( obj, name ):
+    if not "." in name:
+        return getattr( obj, name )
+
+    try:
+        attr = reduce( getattr, name.split( '.' ), obj )
+        return attr
+
+    except AttributeError:
+        return getattr( obj, name )
+
+    return

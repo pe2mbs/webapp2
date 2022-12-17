@@ -18,14 +18,14 @@
 #
 #      gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
-from webapp2.common.tracking.schema import *
-from webapp2.common.tracking.model import *
-from webapp2.common.tracking.view import *
+from webapp.common.tracking.schema import *
+from webapp.common.tracking.model import *
+from webapp.common.tracking.view import *
 try:
     from webapp2.common.tracking.constants import *
 
 except ImportError:
     pass
 
-import webapp2.common.tracking.tracking
+import webapp.common.tracking.tracking
 

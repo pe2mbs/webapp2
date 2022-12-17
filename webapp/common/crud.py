@@ -8,7 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from flask.globals import LocalProxy
 import posixpath
-from testprocess.util.decorators import with_valid_input
+from webapp.common.decorators import with_valid_input
 import webapp.api as API
 from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp.common.exceptions import *
@@ -274,7 +274,7 @@ class CrudInterface( object ):
         self.registerRoute( 'count', self.recordCount, methods=['GET'])
         self.__useJWT   = use_jwt
         return
-    
+
     def __repr__( self ):
         return str(self._model_cls)
 
@@ -722,7 +722,7 @@ class CrudInterface( object ):
         if body.pageIndex is not None and body.pageSize is not None:
             return jsonify(  { "itemList": result, "totalItems": totalItems } )
         return jsonify( result )
-    
+
     def deleteCache( self ):
         cache.delete_memoized(self.recordGetColValue)
         cache.delete_memoized(self.pagedList)

@@ -19,12 +19,12 @@
 #   gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
 from flask import Blueprint, request, jsonify
-import webapp2.api as API
-from webapp2.common.crud import CrudInterface, RecordLock
+import webapp.api as API
+from webapp.common.crud import CrudInterface, RecordLock
 import traceback
-from webapp2.common.tracking.model import Tracking
-from webapp2.common.tracking.schema import TrackingSchema
-from webapp2.common.tracking.mixin import TrackingViewMixin
+from webapp.common.tracking.model import Tracking
+from webapp.common.tracking.schema import TrackingSchema
+from webapp.common.tracking.mixin import TrackingViewMixin
 
 
 trackingApi = Blueprint( 'trackingApi', __name__ )
