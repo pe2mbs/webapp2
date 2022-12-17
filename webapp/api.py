@@ -22,8 +22,6 @@ from tasks.tsk_common.constants import *
 from flask_marshmallow import Marshmallow
 from webapp.common.util import TableManager
 
-from webapp2.common.tablemngt import TableManager
-
 app             = None
 menuItems       = []
 applicInfo      = {}

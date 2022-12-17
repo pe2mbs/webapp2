@@ -23,7 +23,7 @@ import socket
 from flask import json, request, url_for, render_template, make_response, Response
 from mako.template import Template
 import werkzeug.exceptions
-from webapp2.common.error import BackendError
+from webapp.common.error import BackendError
 
 
 app = None

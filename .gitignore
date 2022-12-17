@@ -54,6 +54,7 @@ __pycache__/
 /__pycache__
 *.pyc
 
-build/
 *.db
+build/
+example/
 webapp.egg-info/

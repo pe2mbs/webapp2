@@ -51,6 +51,7 @@ setup(
         'eventlet',
         'deprecated',
         'MarkupSafe',
-        'itsdangerous'
+        'itsdangerous',
+        'pydantic'
     ]
 )
