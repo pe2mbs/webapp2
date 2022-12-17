@@ -176,9 +176,17 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         else:
             API.loggingInfo = LOGGING_INFO
 
+        offset = 0
+        while len( sys.argv ) > offset and ( sys.argv[ offset ].endswith( '.py' ) or sys.argv[ offset ].endswith( '.exe' ) ):
+            offset += 1
+
+        print( "sys.argv", sys.argv, offset )
         logArgs = {
             'pid': os.getpid(),
-            'name': process_name
+            'name': process_name,
+            'process_args': '-'.join(sys.argv[offset:] ),
+            'process_name': sys.argv[ offset - 1 ],
+
         }
         if isinstance( API.loggingInfo, str ):
             # filename
@@ -203,10 +211,28 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
         API.logger      = API.app.logger
         API.app.logger.warning( "Logging Flask application: {}".format( logging.getLevelName( API.app.logger.level ) ) )
-        API.app.logger.info( "{}".format( yaml.dump( API.app.config.struct, default_flow_style = False ) ) )
+        if os.environ.get( 'FLASK_DEGUG', 0 ) == 1:
+            API.app.logger.info( "{}".format( yaml.dump( API.app.config.struct, default_flow_style = False ) ) )
         API.logger = API.app.logger
         sys.stderr = LoggerWriter( API.app.logger.warning )
+
+        # register cache
+        API.cache.init_app( API.app )
+
+        # import tracking and locking modules
+        import webapp2.extensions.tracking              # noqa
+        import webapp2.common.tracking as tracking
+        API.app.logger.debug( 'registering module {0}'.format( tracking ) )
+        tracking.registerApi()
+
+        from webapp2.common.locking import view, schema, menu, mixin, model # noqa
+        import webapp2.common.locking as locking
+        API.app.logger.debug( 'registering module {0}'.format( locking ) )
+        locking.registerApi()
+
+        # register other modules of generated and non generated classes
         module = None
+        API.logger.info( "Current process ID: {}".format( os.getpid() ) )
         sys.path.append( root_path )
         API.app.json_encoder = WebAppJsonEncoder
         registerExtensions( module )
@@ -256,6 +282,9 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
         raise
 
+    # register table name class mapping
+    API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
+
     return API.app
 
 
@@ -269,4 +298,9 @@ def SetApiReferences( api ):
     api.app     = API.app
     api.db      = API.app.db
     api.logger  = API.app.logger
+
+    # TODO: This is at the wrong place, but now now it works
+    API.C_TESTRUN_OBJECT = "testrunObject"
     return
+
+

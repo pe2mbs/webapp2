@@ -13,6 +13,7 @@ from webapp2.commands.exporter import dbExporters
 from webapp2.commands.inporter import dbInporters
 from webapp2.commands.schema import ( listSchemas,
                                      getCurrentVersion,
+                                        NotAnWebappSchema,
                                      getCurrentSchema,
                                      copySchema, copySchema2,
                                      listTables )
@@ -41,7 +42,12 @@ def backup( _list, name, schema ):
         return
 
     API.app.logger.info( "DBA backup name: {} schema: {}".format( name, schema ) )
-    oSchema = getCurrentSchema()
+    try:
+        oSchema = getCurrentSchema()
+
+    except NotAnWebappSchema:
+        return
+
     if name is None:
         # Create schema based on the alembic version
         # If it exists drop the schema first
@@ -480,13 +486,14 @@ COPY_HELP = """Copy schema to another.
                help = "Copies even when version differ." )
 @click.argument( 'schema', nargs = -1)
 def copy( schema, clear, force, ignore_errors ):
-    destSchema = getCurrentSchema()
-    oVersion = getCurrentVersion()
+    remote      = None
+    destSchema  = getCurrentSchema()
+    oVersion    = getCurrentVersion()
     if oVersion is None:
-        print( "Invalid schema, missing tables. execute '# flask db upgrade'" )
+        print( f"Invalid schema, missing tables. execute '# flask db upgrade'\nCurrent schema {destSchema} with version {oVersion}" )
         return
 
-    schemas = listSchemas( all = True, exclude = [ 'information_schema', 'mysql', 'performance_schema' ] )
+    schemas = listSchemas( all = True, exclude = [ 'information_schema', 'mysql', 'performance_schema' ], remote = remote )
     if len( schema ) > 0:
         schema = schema[ 0 ]
 
@@ -495,11 +502,15 @@ def copy( schema, clear, force, ignore_errors ):
 
     CommandBanner( "DBA COPY TABLE.", "(C) Copyright 2020 - Marc Bertens, all rights reserved." )
     if schema not in schemas:
-        print( "Invalid schema, available" )
+        if schema != '':
+            print( f"Invalid schema: {schema}, available" )
+
         for s in schemas:
             try:
-                print( "* {}".format( s ) )
-                print( "  Version: {}\n".format( getCurrentVersion( s ) ) )
+                version = getCurrentVersion( s, remote )
+                if version is not None:
+                    print( f"* {s}" )
+                    print( f"  Version: {version}\n" )
 
             except:
                 pass
@@ -519,7 +530,7 @@ def copy( schema, clear, force, ignore_errors ):
             return
 
         API.app.logger.info( "Clear: {}".format( clear ) )
-        resultTable, errorTable, total, errors = copySchema2( destSchema, schema, clear, ignore_errors )
+        resultTable, errorTable, total, errors, skipped = copySchema2( destSchema, schema, clear, ignore_errors )
         for key, value in resultTable.items():
             print( "{:40}: {} inserted.".format( key, value ) )
 
@@ -527,5 +538,9 @@ def copy( schema, clear, force, ignore_errors ):
         for key, value in errorTable.items():
             print( "{:40}: {} skipped.".format( key, value ) )
 
-        print( "Total Errors: {:40}: {}".format( "total",total ) )
+        print( "Total Errors: {:40}: {}".format( "total", len( errorTable ) ) )
+        for skip, exc in skipped:
+            print( f"{skip:40} was skipped, due { ' '.join(exc.args ) }." )
+
+        print("Total skipped: {:40}: {}".format("total", len(skipped)))
     return

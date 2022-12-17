@@ -18,6 +18,7 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 import os
+from tasks.tsk_common.constants import *
 from flask_marshmallow import Marshmallow
 from webapp2.common.tablemngt import TableManager
 
@@ -25,6 +26,7 @@ from webapp2.common.tablemngt import TableManager
 app             = None
 menuItems       = []
 applicInfo      = {}
+plugins         = None
 coreApi         = None
 listModules     = []
 plugins         = []
@@ -34,9 +36,11 @@ migrate         = None
 cache           = None
 cors            = None
 jwt             = None
+use_jwt         = False
 mm              = Marshmallow()
 stomp           = None
 db              = None
+redis           = {}
 socketio        = None
 logger          = None
 HERE            = os.path.abspath( os.path.dirname( __file__ ) )
@@ -44,3 +48,4 @@ PROJECT_ROOT    = os.path.join( HERE, os.pardir )
 recordTracking  = None
 dbtables        = TableManager()
 memorytables    = TableManager()
+tables_dict     = dict()
