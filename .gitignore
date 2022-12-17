@@ -53,3 +53,7 @@ Thumbs.db
 __pycache__/
 /__pycache__
 *.pyc
+
+build/
+*.db
+webapp.egg-info/

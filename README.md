@@ -1,30 +1,15 @@
 # Running an Angular application from Python and Flask
+The webapp module provides a standard framework providing web service for angular applications and there backend API calls. 
+Earlier versions where provided via git submodule, webapp version 3 is now provided via a standard package. 
 
-This is an example how to setup and run an Angular application from Python and Flask.
-
-
-# General
-This repository should be used as follows:
-
-    # git init
-    # git submodule add https://gitlab.pe2mbs.nl/python/webapp.git
-    
-    # ng new frontend
-    # touch version.py
-
-Contents of the `version.py`
-```python    
-version = '1.0.0'
-author = 'Marc Bertens-Nguyen'
-copyright = '2020 Copyright'
-```
+Together with gengrud package its a powerfull tool for setting up web applications with Angular.  
 
 This project was based on many internet sources. Many thanks to all those authors that 
 showed how to solve parts of the problem.
 
 # Licence
 Python and Flask serving Angular application.
-Copyright (C) 2018-2021 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
+Copyright (C) 2018-2023 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
 
 This library is free software; you can redistribute it and/or modify
 it under the terms of the GNU Library General Public License GPL-2.0-only
@@ -41,23 +26,6 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 
 # Structure.
-```
-<project-root-folder>
-+-  webapp2              this repro
-    ...
-    requirements.txt
-    +-- requirements
-        dev.txt
-        prod.txt
-+-- <application-api>
-    __init__.py
-    ...
-+-- frontend
-    (the angular source tree)
-        (the angular project files)      
-
-```
-
 
 ## Python.
 Tested on the following versions on Linux: 
@@ -65,8 +33,10 @@ Tested on the following versions on Linux:
 * Python 3.6.9
 * Python 3.8.0
 
+## Windows
 Tested on the following versions on Version:
 * Python 3.6.6
+* Python 3.8.0
 
 
 ## Flask.
