@@ -17,8 +17,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-version = "3.0.1920"
-date = "15 December 2022"
+version = "3.1.1921"
+date = "18 December 2022"
 author = 'Marc Bertens-Nguyen'
 author_email = 'm.bertens@pe2mbs.nl'
 copyright = '(c) Copyright 2018-2023 Marc Bertens-Nguyen, all rights reserved'
