@@ -408,20 +408,38 @@ class CrudInterface( object ):
         if self.__useJWT:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
+    
         filter = body.filters
+        # parse filters
+        for item in filter:
+            if isinstance(item, dict):
+                item = BaseFilter.parse_obj(item)
+
         API.app.logger.debug( "Filter {}".format( filter ) )
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
-        API.app.logger.debug( "SQL-QUERY count {}".format( recCount ) )
+        API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
         sorting = body.sorting
         if isinstance( sorting, Sorting ):
             column = sorting.column
+            # get related target class of the foreign attribute
+            relatedClass = self._model_cls
+            attributes = column.split(".")
+            shouldJoin = len([ item for item in filter if item.column == column ]) == 0
+            for i in range(0, len(attributes) - 1):
+                relationship = getattr( relatedClass, attributes[i])
+                # make join if not already done through filtering
+                if shouldJoin:
+                    query = query.join(relationship)
+                relatedClass = relationship.mapper.class_
             if column is not None:
+                # in the following, it is explicitly assumed that the query contains already a join
+                # with the target model class since the filter field and sort field must correlate
                 if sorting.direction == 'asc':
-                    query = query.order_by( getNestedAttr( self._model_cls, column ) )
+                    query = query.order_by( getattr( relatedClass, attributes[-1] ) )
                 else:
-                    query = query.order_by( getNestedAttr( self._model_cls, column ).desc() )
+                    query = query.order_by( getattr( relatedClass, attributes[-1] ).desc() )
 
         pageIndex = body.pageIndex
         pageSize = body.pageSize
@@ -431,7 +449,7 @@ class CrudInterface( object ):
 
         query = query.limit( pageSize ).offset( pageIndex * pageSize )
         result:Response = self._schema_list_cls.jsonify( query.all() )
-        API.app.logger.debug( "RESULT count {} => {}".format( recCount, result.json ) )
+        API.app.logger.debug( "RESULT filtered count {}q".format( recCount ) )
         result = jsonify(
             records = result.json,
             pageSize = pageSize,
