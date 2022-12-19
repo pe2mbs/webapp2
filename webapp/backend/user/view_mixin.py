@@ -142,6 +142,9 @@ class UserViewMixin():
         passwd = data.get( 'password', None )
         keepsignedin = data.get( 'keepsignedin', False )
         try:
+            authenticator = initAuthenticator()
+            authenticator.Authenticate( username, passwd )
+
             API.logger.info( "data: {}".format( data ) )
             userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
             if userRecord.U_ACTIVE:

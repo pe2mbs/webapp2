@@ -2,7 +2,7 @@ import traceback
 import hashlib
 import json
 from sqlalchemy.orm.exc import NoResultFound
-from backend.user.model import User
+from webapp.backend.user.model import User
 import webapp.api as API
 from webapp.authenticate.base import Authenticate
 
@@ -60,3 +60,5 @@ class DbAuthenticate( Authenticate ):
 
         return False
 
+    def _getUserInfo( self ):
+        return None

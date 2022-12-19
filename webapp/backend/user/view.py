@@ -21,13 +21,9 @@
 from flask import Blueprint
 import webapp.api as API
 from webapp.common import CrudInterface, RecordLock
-import traceback
 from webapp.backend.user.model import User
 from webapp.backend.user.schema import UserSchema
 from webapp.backend.user.view_mixin import UserViewMixin
-from webapp.authenticate.init import registerCustomAuthenticator, initAuthenticator
-from webapp.backend.user.db_pam import DbPamAuthenticate
-from webapp.backend.user.db_ldap import DbLdapAuthenticate
 
 
 webappUserApi = Blueprint( 'webappUserApi', __name__ )
@@ -35,8 +31,6 @@ webappUserApi = Blueprint( 'webappUserApi', __name__ )
 
 # Args is for downwards compatibility !!!!!
 def registerApi( *args ):
-    registerCustomAuthenticator( 'WEPAPP-DB-PAM', DbPamAuthenticate )   # noqa
-    registerCustomAuthenticator( 'WEPAPP-DB-LDAP', DbLdapAuthenticate ) # noqa
     # Set the logger for the users module
     API.app.logger.info( 'Register User routes' )
     API.app.register_blueprint( webappUserApi )

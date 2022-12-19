@@ -3,12 +3,6 @@
 
 C_U_ACTIVE_MAPPING = {True: 'Yes', False: 'No'}
 
-
-# field user.U_MUST_CHANGE constants
-
-C_U_MUST_CHANGE_MAPPING = {True: 'Yes', False: 'No'}
-
-
 # field user.U_LISTITEMS constants
 C_U_LISTITEMS__5_RECORDS                                         = 5
 C_U_LISTITEMS__10_RECORDS                                        = 10

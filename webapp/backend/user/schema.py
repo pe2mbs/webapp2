@@ -21,6 +21,7 @@
 import webapp.api as API
 from marshmallow import fields, pre_load, post_dump
 from webapp.common import value2Label, utcDateString2Local
+from webapp.backend.user.constant import C_U_ACTIVE_MAPPING, C_U_LISTITEMS_MAPPING
 
 
 class UserSchema( API.mm.SQLAlchemySchema ):
@@ -30,9 +31,9 @@ class UserSchema( API.mm.SQLAlchemySchema ):
     U_ID            = fields.Integer()
     U_ACTIVE        = fields.Boolean()
     U_NAME          = fields.String()
-    U_ROLE          = fields.Integer()
-    U_ROLE_FK       = API.mm.Nested( 'RoleSchema' )
-    # U_HASH_PASSWORD = fields.String()
+    U_R_ID          = fields.Integer()
+    U_R_ID_FK       = API.mm.Nested( 'RoleSchema' )
+    U_HASH_PASSWORD = fields.String()
     U_LAST_LOGIN    = fields.DateTime()
     U_PASSWD_TRIES  = fields.Integer()
     U_FIRST_NAME    = fields.String()
@@ -43,14 +44,12 @@ class UserSchema( API.mm.SQLAlchemySchema ):
     U_LOCALE        = fields.Integer()
     U_LISTITEMS     = fields.Integer()
     U_PROFILE       = fields.String()
-    # U_JSON_DATA     = fields.String()
+    U_JSON_DATA     = fields.String()
 
     @post_dump
     def post_dump_process( self, in_data, **kwargs ):
-        in_data[ 'U_ACTIVE_LABEL' ] = value2Label( {True: 'Yes', False: 'No'}, in_data[ 'U_ACTIVE' ] )
-        in_data[ 'U_MUST_CHANGE_LABEL' ] = value2Label( {True: 'Yes', False: 'No'}, in_data[ 'U_MUST_CHANGE' ] )
-        in_data[ 'U_LISTITEMS_LABEL' ] = value2Label( {5: '5 Records', 10: '10 Records', 25: '25 Records', 100: '100 Records'}, in_data[ 'U_LISTITEMS' ] )
-        # del in_data[ 'U_JSON_DATA' ]
+        in_data[ 'U_ACTIVE_LABEL' ]     = value2Label( C_U_ACTIVE_MAPPING, in_data[ 'U_ACTIVE' ] )
+        in_data[ 'U_LISTITEMS_LABEL' ]  = value2Label( C_U_LISTITEMS_MAPPING, in_data[ 'U_LISTITEMS' ] )
         return in_data
 
     @pre_load
