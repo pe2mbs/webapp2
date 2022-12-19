@@ -8,7 +8,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from flask.globals import LocalProxy
 import posixpath
-from testprocess.util.decorators import with_valid_input
+from webapp2.common.decorators import with_valid_input
 import webapp2.api as API
 from flask_jwt_extended import ( verify_jwt_in_request, get_jwt_identity )
 from webapp2.common.error import BackendError
