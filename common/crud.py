@@ -17,6 +17,7 @@ from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
 from webapp2.common.util import getNestedAttr
 from webapp2.api import cache
+import json
 
 
 def render_query(statement, dialect=None):
@@ -67,6 +68,10 @@ def render_query(statement, dialect=None):
 def getDictFromRequest( request ):
     try:
         data = request.json
+        if data is None:
+            data = request.data
+            if isinstance(data, bytes):
+                data = json.loads( data.decode('utf-8') )
 
     except Exception:
         data = None
@@ -188,13 +193,14 @@ class RecordLock( object ):
 
         if user is None:
             user = 'single.user'
-
+        
         API.logger.info( "request: {}".format( request ) )
         if isinstance( request, dict ):
             obj._data = request
 
         elif isinstance( request, Request ):
-            obj._data = request.json
+            # obj._data = request.json
+            obj._data = getDictFromRequest( request )
 
         elif isinstance( request, LocalProxy ):
             obj._data = getDictFromRequest( request )
@@ -767,6 +773,7 @@ class CrudInterface( object ):
         return ""
 
     def unlock( self ):
+        print("################### here", request)
         if self._lock:
             self.checkAuthentication()
             return jsonify( self._lock_cls.unlock( request ) )
