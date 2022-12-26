@@ -11,17 +11,24 @@ import posixpath
 from webapp.common.decorators import with_valid_input
 import webapp.api as API
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
+from webapp.common.error import BackendError
 from webapp.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
 from webapp.common.util import getNestedAttr
 import webapp.extensions.cache              # noqa
 from webapp.api import cache
+import json
 
 
 def getDictFromRequest( request ):
     try:
         data = request.json
+        if data is None:
+            data = request.data
+            if isinstance(data, bytes):
+                data = json.loads( data.decode('utf-8') )
+
 
     except Exception:
         data = None
@@ -152,7 +159,9 @@ class RecordLock( object ):
             obj._data = request
 
         elif isinstance( request, Request ):
-            obj._data = request.json
+            # obj._data = request.json
+            obj._data = getDictFromRequest( request )
+
 
         elif isinstance( request, LocalProxy ):
             obj._data = getDictFromRequest( request )
@@ -366,30 +375,49 @@ class CrudInterface( object ):
         if self.__useJWT:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
+
         filter = body.filters
+        # parse filters
+        for item in filter:
+            if isinstance(item, dict):
+                item = BaseFilter.parse_obj(item)
+
         API.app.logger.debug( "Filter {}".format( filter ) )
         query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
-        API.app.logger.debug( "SQL-QUERY : {}".format( str( query ) ) )
+        API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
-        API.app.logger.debug( "SQL-QUERY count {}".format( recCount ) )
+        API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
         sorting = body.sorting
         if isinstance( sorting, Sorting ):
             column = sorting.column
+            # get related target class of the foreign attribute
+            relatedClass = self._model_cls
+            attributes = column.split(".")
+            shouldJoin = len([ item for item in filter if item.column == column ]) == 0
+            for i in range(0, len(attributes) - 1):
+                relationship = getattr( relatedClass, attributes[i])
+                # make join if not already done through filtering
+                if shouldJoin:
+                    query = query.join(relationship)
+                relatedClass = relationship.mapper.class_
             if column is not None:
+                # in the following, it is explicitly assumed that the query contains already a join
+                # with the target model class since the filter field and sort field must correlate
                 if sorting.direction == 'asc':
-                    query = query.order_by( getNestedAttr( self._model_cls, column ) )
+                    query = query.order_by( getattr( relatedClass, attributes[-1] ) )
                 else:
-                    query = query.order_by( getNestedAttr( self._model_cls, column ).desc() )
+                    query = query.order_by( getattr( relatedClass, attributes[-1] ).desc() )
 
         pageIndex = body.pageIndex
         pageSize = body.pageSize
+
         API.app.logger.debug( "SQL-QUERY limit {} / {}".format( pageIndex, pageSize ) )
         if ( ( pageIndex * pageSize ) > recCount ):
             pageIndex = 0
 
         query = query.limit( pageSize ).offset( pageIndex * pageSize )
         result:Response = self._schema_list_cls.jsonify( query.all() )
-        API.app.logger.debug( "RESULT count {} => {}".format( recCount, result.json ) )
+        API.app.logger.debug( "RESULT filtered count {}".format( recCount ) )
         result = jsonify(
             records = result.json,
             pageSize = pageSize,
@@ -457,21 +485,32 @@ class CrudInterface( object ):
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         #record = self._model_cls.query.get( locker.id )
-        query = API.db.session.query( self._model_cls )
-        for column, value in locker.data.items():
-            query = query.filter(getattr(self._model_cls, column) == value)
+        try:
+            query = API.db.session.query( self._model_cls )
+            for column, value in locker.data.items():
+                query = query.filter(getattr(self._model_cls, column) == value)
 
-        record = query.one()
-        result = self._schema_cls.jsonify( record )
+            record = query.one()
+            result = self._schema_cls.jsonify( record )
+        except Exception as exc:
+            raise BackendError(exc, problem="Requested {} record does not exist in the database".format( self._model_cls.__name__ ),
+            solution="Ensure that you request an existing item")
+
         API.app.logger.debug( 'recordGet() => {0}'.format( result ) )
         return result
+
+
 
     def recordGetId( self, id, **kwargs ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'GET: {}/get/{} by {}'.format( self._uri, locker.id, locker.user ) )
-        record = self._model_cls.query.get( locker.id )
-        result = self._schema_cls.jsonify( record )
+        try:
+            record = self._model_cls.query.get( locker.id )
+            result = self._schema_cls.jsonify( record )
+        except Exception as exc:
+            raise BackendError(exc, problem="{} record with id {} does not exist in the database".format( self._model_cls.__name__, id ),
+            solution="Ensure that you request an existing item")
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
         return result
 

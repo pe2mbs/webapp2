@@ -101,35 +101,49 @@ def handle_exception( e: Exception ):
     app.logger.error( "Error handler: {} :: {}".format( type( e ), e ) )
     problem = ""
     solution = ""
+    description = ""
+    error_code = 500
     if isinstance( e, werkzeug.exceptions.NotFound ):
         addresses = []
         for hostAddress in request.access_route:
             addresses.append( "{} = {}".format( hostAddress, getHostByAddress( hostAddress ) ) )
 
         e.description += "\nRequest URL {}\nSource address {}".format( request.url, ", ".join( addresses ) )
-        response: Response = make_response( e.description, e.code )
+        problem = "Requested URL not found"
+        #response: Response = make_response( e.description, e.code )
         description = e.description
+        error_code = e.code
     print( "Error handler: {} :: {}".format( type( e ), e ) )
     if isinstance( e, werkzeug.exceptions.HTTPException ):
-        response: Response = make_response( e.description, e.code )
+        #response: Response = make_response( e.description, e.code )
         description = e.description
+        problem = str( e )
+        error_code = e.code
 
     elif isinstance( e, BackendError ):
-        response: Response = make_response( str( e ), e.error_code )
+        #response: Response = make_response( str( e ), e.error_code )
         description = str( e )
+        error_code = e.error_code
         problem = e.problem
         solution = e.solution
 
     elif isinstance( e, Exception ):
-        response: Response = make_response( str( e ), 500 )
+        #response: Response = make_response( str( e ), 500 )
         description = str( e )
+        problem = str( e )
+        error_code = 500
 
     else:
-        response: Response= make_response( str( e ), 500 )
+        #response: Response= make_response( str( e ), 500 )
         description = str( e )
+        problem = str( e )
+        error_code = 500
+
+    response: Response = make_response( description, error_code )
 
     app.logger.error( traceback.format_exc() )
     response_data = {}
+
     if e is MemoryError:
         # This is to shutdown the application to clean up the memory
         # and let Process monitor restart the application.
