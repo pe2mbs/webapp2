@@ -103,13 +103,17 @@ class Config( BaseConfig ):
         """
         result = {}
         try:
+            print("########################", config_folder)
             if os.path.isdir( config_folder ):
                 # Master configuration
                 configFile = os.path.join( config_folder, 'config.conf' )
                 if os.path.isfile( configFile ):
                     with open( configFile, 'r' ) as stream:
                         result = my_safe_load( stream )
-
+                elif os.path.isfile( os.path.join( config_folder, 'config.yaml' ) ):
+                    configFile = os.path.join( config_folder, 'config.yaml' )
+                    with open( configFile, 'r' ) as stream:
+                        result = self.fromYaml( config_file )
                 else:
                     raise Exception( 'No master configuration present {}'.format( configFile ) )
 

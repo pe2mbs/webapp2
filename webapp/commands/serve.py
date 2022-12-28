@@ -2,9 +2,9 @@ import os
 from flask.cli import AppGroup
 import webapp.api as API
 import click
-from flask import current_app
-import werkzeug.serving
-from werkzeug.middleware.proxy_fix import ProxyFix
+#from flask import current_app
+#import werkzeug.serving
+#from werkzeug.middleware.proxy_fix import ProxyFix
 from flask.cli import ( pass_script_info,
                         CertParamType,
                         _validate_key,
@@ -146,7 +146,7 @@ def dev( info, hostname, port, use_reloader, use_debugger, with_threads, cert ):
     if use_debugger is None:
         use_debugger = debug
 
-    show_server_banner( get_env(), debug )
+    show_server_banner( get_env(), debug, "" , False )
     app = DispatchingApp( info.load_app )
 
     applic      = info.load_app()
@@ -274,7 +274,7 @@ def ssl( info, host, port, use_reloader, use_debugger, with_threads, cert ):
     if use_debugger is None:
         use_debugger = debug
 
-    show_server_banner( get_env(), debug )
+    show_server_banner( get_env(), debug, "" , False )
     app = DispatchingApp( info.load_app )
     applic      = info.load_app()
     if cert is None:

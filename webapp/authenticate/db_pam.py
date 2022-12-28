@@ -1,10 +1,10 @@
-from backend.authenticate.linux_pam import PamAuthenticate
+from webapp.authenticate.linux_pam import PamAuthenticate
 import traceback
 import hashlib
 import time
 import json
 from sqlalchemy.orm.exc import NoResultFound
-from backend.user.model import User
+from webapp.backend.user.model import User
 import webapp.api as API
 
 

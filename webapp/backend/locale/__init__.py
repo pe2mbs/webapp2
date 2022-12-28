@@ -16,13 +16,14 @@
 #   Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
 #   Boston, MA 02110-1301 USA
 #
-#      gencrud: 2021-04-04 08:26:10 version 2.1.680 by user mbertens
+#      gencrud: 2022-12-22 14:32:53 version 2.3.704 by user w124574
 #
-from webapp.backend.user.schema import *
-from webapp.backend.user.model import *
-from webapp.backend.user.view import *
+from webapp.backend.locale.schema import *
+from webapp.backend.locale.model import *
+from webapp.backend.locale.view import *
 try:
-    from webapp.backend.user.constants import *
+    from webapp.backend.locale.constants import *
 
 except ImportError:
     pass
+

@@ -22,11 +22,11 @@ class UserViewMixin():
         self.registerRoute( 'pagesize', self.pageSize, methods = [ 'GET' ] )
         return
 
-    @jwt_required()
+    @jwt_required
     def userLogout( self ):
         return "", 200
 
-    @jwt_required()
+    @jwt_required
     def pageSize( self ):
         self.checkAuthentication()
         username = get_jwt_identity()
@@ -34,7 +34,7 @@ class UserViewMixin():
         return jsonify( pageSize = userRecord.U_LISTITEMS,
                         pageSizeOptions = [ 5, 10, 25, 100 ] )
 
-    @jwt_required()
+    @jwt_required
     def restoreProfile( self, username ):
         self.checkAuthentication()
         if username not in ( '', None, 'undefined' ):
@@ -75,7 +75,7 @@ class UserViewMixin():
 
         return jsonify( profileData )
 
-    @jwt_required()
+    @jwt_required
     def storeProfile( self ):
         self.checkAuthentication()
         profileData = request.json

@@ -19,6 +19,7 @@
 #   gencrud: 2021-04-04 08:26:09 version 2.1.680 by user mbertens
 #
 import webapp.api as API
+from webapp.backend.role.schema import RoleSchema
 from webapp.common import DbBaseMemory, CrudModelMixin
 
 
@@ -27,7 +28,8 @@ class Role( API.db.Model, CrudModelMixin ):
     When modifing the file make sure that you remove the table from the configuration.
     """
     __field_list__      = ['R_ID', 'R_ROLE', 'R_REMARK', 'R_DEFAULT_CREATE', 'R_DEFAULT_READ', 'R_DEFAULT_UPDATE', 'R_DEFAULT_DELETE' ]
-    __tablename__       = 'roles'
+    __tablename__       = 'gn_role'
+    __schema_cls__       = RoleSchema()
     R_ID                = API.db.Column( "r_id", API.db.Integer, autoincrement = True, primary_key = True )
     R_ROLE              = API.db.Column( "r_role", API.db.String( 255 ), nullable = False )
     R_DEFAULT_CREATE    = API.db.Column( "r_default_create", API.db.Boolean, default = False )
@@ -41,12 +43,12 @@ class Role( API.db.Model, CrudModelMixin ):
         return RoleMemory( self )
 
 
-# API.dbtables.register( Role )
+API.dbtables.register( Role )
 
 
 class RoleMemory( DbBaseMemory ):
     __model_cls__       = Role
-    __tablename__       = 'roles'
+    __tablename__       = 'gn_role'
 
 
-# API.memorytables.register( RoleMemory )
+API.memorytables.register( RoleMemory )

@@ -19,6 +19,7 @@
 #   gencrud: 2021-04-04 08:26:10 version 2.1.680 by user mbertens
 #
 import webapp.api as API
+from webapp.backend.user.schema import UserSchema
 from webapp.common import DbBaseMemory, CrudModelMixin
 
 
@@ -29,11 +30,12 @@ class User( API.db.Model, CrudModelMixin ):
     __field_list__      = ['U_ID', 'U_ACTIVE', 'U_NAME', 'U_ROLE', 'U_HASH_PASSWORD', 'U_LAST_LOGIN', 'U_PASSWD_TRIES',
                            'U_FIRST_NAME', 'U_MIDDLE_NAME', 'U_LAST_NAME', 'U_EMAIL',
                            'U_REMARK', 'U_LOCALE', 'U_LISTITEMS', 'U_PROFILE', 'U_JSON_DATA' ]
-    __tablename__       = 'user'
+    __tablename__       = 'gn_user'
+    __schema_cls__      = UserSchema()
     U_ID                = API.db.Column( "u_id", API.db.Integer, autoincrement = True, primary_key = True )
     U_ACTIVE            = API.db.Column( "u_active", API.db.Boolean, default = False )
     U_NAME              = API.db.Column( "u_name", API.db.String( 30 ), nullable = False )
-    U_R_ID              = API.db.Column( "u_r_id", API.db.Integer, API.db.ForeignKey( "roles.r_id" ) )
+    U_ROLE              = API.db.Column( "u_role", API.db.Integer, API.db.ForeignKey( "gn_role.r_id", ondelete = "CASCADE" ) )
     U_HASH_PASSWORD     = API.db.Column( "u_hash_password", API.db.String( 255 ), nullable = False )
     U_LAST_LOGIN        = API.db.Column( "u_last_login", API.db.DateTime, nullable = True )
     U_PASSWD_TRIES      = API.db.Column( "u_passwd_tries", API.db.Integer, default = 0 )
@@ -42,24 +44,27 @@ class User( API.db.Model, CrudModelMixin ):
     U_LAST_NAME         = API.db.Column( "u_last_name", API.db.String( 50 ), nullable = False )
     U_EMAIL             = API.db.Column( "u_email", API.db.String( 100 ), nullable = False )
     U_REMARK            = API.db.Column( "u_remark", API.db.LONGTEXT, default = "NULL" )
-    U_LOCALE            = API.db.Column( "u_locale", API.db.Integer, default = 1 )
+    #U_LOCALE            = API.db.Column( "u_locale", API.db.Integer, default = 1 )
+    U_LOCALE            = API.db.Column( "u_locale", API.db.Integer, API.db.ForeignKey( "gn_locale.l_id", ondelete = "CASCADE" ) )
     U_LISTITEMS         = API.db.Column( "u_listitems", API.db.Integer, default = 10 )
     U_PROFILE           = API.db.Column( "u_profile", API.db.LONGTEXT, default = "NULL" )
-    U_JSON_DATA         = API.db.Column( "u_profile", API.db.LONGTEXT, default = "NULL" )
+    U_JSON_DATA         = API.db.Column( "u_json_data", API.db.LONGTEXT, default = "NULL" )
 
-    U_R_ID_FK           = API.db.relationship( 'Role', backref = 'user', lazy = True )
+    U_ROLE_FK           = API.db.relationship( 'Role', backref = "gn_user_u_role", foreign_keys=[ U_ROLE ], lazy = True )
+    U_LOCALE_FK         = API.db.relationship( 'Locale', backref = "gn_user_u_locale", foreign_keys=[ U_LOCALE ], lazy = True )
+    #U_R_ID_FK           = API.db.relationship( 'Role', backref = 'user', lazy = True )
     API.db.UniqueConstraint( 'U_NAME', name='U_NAME_IDX' )
 
     def memoryInstance( self ):
         return UserMemory( self )
 
 
-# API.dbtables.register( User )
+API.dbtables.register( User )
 
 
 class UserMemory( DbBaseMemory ):
     __model_cls__       = User
-    __tablename__       = 'user'
+    __tablename__       = 'gn_user'
 
 
-# API.memorytables.register( UserMemory )
+API.memorytables.register( UserMemory )

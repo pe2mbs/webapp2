@@ -1,4 +1,4 @@
-from backend.authenticate.base import Authenticate, NotAuthenticate
+from webapp.authenticate.base import Authenticate, NotAuthenticate
 import webapp.api as API
 try:
     import ldap
