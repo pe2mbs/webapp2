@@ -28,7 +28,7 @@ class Role( API.db.Model, CrudModelMixin ):
     When modifing the file make sure that you remove the table from the configuration.
     """
     __field_list__      = ['R_ID', 'R_ROLE', 'R_REMARK', 'R_DEFAULT_CREATE', 'R_DEFAULT_READ', 'R_DEFAULT_UPDATE', 'R_DEFAULT_DELETE' ]
-    __tablename__       = 'gn_role'
+    __tablename__       = 'role'
     __schema_cls__       = RoleSchema()
     R_ID                = API.db.Column( "r_id", API.db.Integer, autoincrement = True, primary_key = True )
     R_ROLE              = API.db.Column( "r_role", API.db.String( 255 ), nullable = False )
@@ -48,7 +48,7 @@ API.dbtables.register( Role )
 
 class RoleMemory( DbBaseMemory ):
     __model_cls__       = Role
-    __tablename__       = 'gn_role'
+    __tablename__       = 'role'
 
 
 API.memorytables.register( RoleMemory )

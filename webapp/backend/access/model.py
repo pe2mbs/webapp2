@@ -7,7 +7,7 @@ class Access( API.db.Model, CrudModelMixin ):
     __tablename__       = 'access'
     #__schema_cls__       = AccessSchema()
     A_ID                = API.db.Column( "a_id", API.db.Integer, autoincrement = True, primary_key = True )
-    A_TABLE             = API.db.Column( "a_table", API.db.String, default = False )
+    A_TABLE             = API.db.Column( "a_table", API.db.String(50), default = False )
     A_CREATE            = API.db.Column( "a_create", API.db.Boolean, default = False )
     A_READ              = API.db.Column( "a_read", API.db.Boolean, default = True )
     A_UPDATE            = API.db.Column( "a_update", API.db.Boolean, default = False )

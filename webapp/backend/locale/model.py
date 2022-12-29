@@ -30,7 +30,7 @@ from sqlalchemy.orm import backref
 
 class Locale( API.db.Model, CrudModelMixin ):
     __field_list__       = ['L_ID', 'L_NAME', 'L_COUNTRY_CODE', 'L_DESCRIPTION', 'L_REMARK']
-    __tablename__        = 'gn_locale'
+    __tablename__        = 'locale'
     __schema_cls__       = LocaleSchema()
     __secondary_key__    = 'L_NAME'
     L_ID                 = API.db.Column( "l_id", API.db.Integer, autoincrement = True, primary_key = True )
@@ -47,7 +47,7 @@ API.dbtables.register( Locale )
 
 class LocaleMemory( DbBaseMemory ):
     __model_cls__       = Locale
-    __tablename__       = 'gn_locale'
+    __tablename__       = 'locale'
 
 
 API.memorytables.register( LocaleMemory )
