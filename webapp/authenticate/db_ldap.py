@@ -10,7 +10,7 @@ import webapp.api as API
 
 class DbLdapAuthenticate( LdapAuthenticate ):
     def __init__( self ):
-        super( DbLdapAuthenticate, self ).__init__()
+        super( DbLdapAuthenticate, self ).__init__( 'DB-LDAP' )
         self.MAX_PASSWORD_TRIES = API.app.config.get( 'MAX_PASSWORD_TRIES', 5 )
         self.MAX_WINDOW         = API.app.config.get( 'MAX_LOGGED_IN_WINDOW', 8 * 3600 )
         return

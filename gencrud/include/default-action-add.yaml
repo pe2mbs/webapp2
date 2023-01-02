@@ -1,0 +1,6 @@
+name:                 new
+label:                New
+type:                 screen
+icon:                 add
+position:             header
+function:             self.addRecord()

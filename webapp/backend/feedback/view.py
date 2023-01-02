@@ -22,14 +22,24 @@ import traceback
 from flask import Blueprint, request, jsonify, current_app
 import webapp.api as API
 from webapp.backend.feedback.model import Feedback
+from webapp.common import createMenuHash
 
 
 feedbackApi = Blueprint( 'feedbackApi', __name__ )
 
 def registerApi( *args ):
     # Set the logger for the users module
-    API.app.logger.info( 'Register RecordLocks routes' )
+    API.app.logger.debug( 'Register RecordLocks routes' )
     API.app.register_blueprint( feedbackApi )
+    # Register at TOP level
+    API.menu.register( {
+        'caption':  'Feedback',
+        'id':       createMenuHash( 'Feedback' ),
+        'after':    'Administration',
+        'access':   '*',
+        'befone':   None,
+        'route':    '/feedback'
+    } )
     return
 
 

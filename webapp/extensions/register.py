@@ -19,6 +19,7 @@
 #
 import webapp.api as API
 from inspect import signature
+from flask_redis import Redis
 
 
 def registerExtensions( module ):
@@ -39,7 +40,9 @@ def registerExtensions( module ):
     EXTENSIONS = API.app.config.get( 'USE_EXTENSIONS', { "BCRYPT": False,
                                                          "CACHE": False,
                                                          "JWT": False,
-                                                         "STOMP": False } )
+                                                         "STOMP": False,
+                                                         'REDIS': "OFF",
+                                                         "SOCKETIO": False } )
     if EXTENSIONS.get( "BCRYPT", False ):
         API.bcrypt.init_app( API.app )
 
@@ -62,7 +65,7 @@ def registerExtensions( module ):
     if EXTENSIONS.get( "STOMP", False ):
         API.stomp.init_app( API.app )
 
-    if API.socketio is not None:
+    if EXTENSIONS.get( "SOCKETIO", False ) and API.socketio is not None:
         API.socketio.init_app( API.app, async_mode='eventlet' )
 
         @API.socketio.on( 'message' )
@@ -74,6 +77,15 @@ def registerExtensions( module ):
         def handle_unnamed_json( message ):
             API.app.logger.error( "Received unnamed WebSocket json data: '{}'".format( message ) )
             return
+
+    redirConnection = EXTENSIONS.get( "REDIS", "OFF" )
+    if redirConnection in ( 'SINGLE', 'MULTIPLE' ):
+        if redirConnection == 'SINGLE' and 'REDIS_BINDS' in API.app.config:
+            # When a single connection is requested but 'REDIS_BINDS'is defined removed it
+            del API.app.config[ 'REDIS_BINDS' ]
+
+        API.redis = Redis()
+        API.redis.init_app( API.app )
 
     if module:
         if hasattr( module,'registerExtensions' ):

@@ -52,6 +52,7 @@ setup(
         'deprecated',
         'MarkupSafe',
         'itsdangerous',
-        'pydantic'
+        'pydantic',
+        'flask-redis-ext'
     ]
 )

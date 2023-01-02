@@ -22,6 +22,8 @@ from functools import reduce
 from itertools import tee, islice, zip_longest
 from dateutil.parser import parse
 from dateutil.tz import gettz
+import webapp.api as API
+import importlib
 
 to_zone = gettz( 'Europe/Amsterdam' )
 
@@ -173,3 +175,18 @@ def getNestedAttr( obj, name ):
         return getattr( obj, name )
 
     return
+
+
+def discoverModules( discoverFolder ):
+    modules = []
+    _, rootPackage = os.path.split( discoverFolder )
+    for package in os.listdir( discoverFolder ):
+        packageFolder = os.path.join( discoverFolder, package )
+        if os.path.isdir( packageFolder ) and os.path.isfile( os.path.join( packageFolder, '__init__.py' ) ):
+            module = importlib.import_module( ".".join( [ rootPackage, package ] ) )
+            API.logger.debug( "Loading module: {}".format( module.__name__ ) )
+            modules.append( module )
+
+    API.listModules.extend( modules )
+    return modules
+

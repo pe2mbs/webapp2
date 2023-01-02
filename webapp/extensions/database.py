@@ -57,6 +57,7 @@ def get_model_by_tablename( tablename ):
 
 class LONGTEXT( types.UserDefinedType ):
     item_type = types.Text
+    cache_ok = True
     def __init__( self ):
         return
 
@@ -78,6 +79,7 @@ class LONGTEXT( types.UserDefinedType ):
 
 class MEDIUMTEXT( types.UserDefinedType ):
     item_type = types.Text
+    cache_ok = True
     def __init__( self ):
         return
 
@@ -96,15 +98,25 @@ class MEDIUMTEXT( types.UserDefinedType ):
 
         return process
 
-
-@compiles(LONGTEXT, "sqlite")
-def compile_binary_sqlite(type_, compiler, **kw):
-    return "VARCHAR"
-
-
-@compiles(MEDIUMTEXT, "sqlite")
-def compile_binary_sqlite(type_, compiler, **kw):
-    return "VARCHAR"
+#
+# @compiles(LONGTEXT, "sqlite")
+# def compile_binary_sqlite(type_, compiler, **kw):
+#     return "VARCHAR"
+#
+#
+# @compiles(MEDIUMTEXT, "sqlite")
+# def compile_binary_sqlite(type_, compiler, **kw):
+#     return "VARCHAR"
+#
+#
+# @compiles(LONGTEXT, "postgresql")
+# def compile_binary_postgres(type_, compiler, **kw):
+#     return "text"
+#
+#
+# @compiles(MEDIUMTEXT, "postgresql")
+# def compile_binary_postgres1(type_, compiler, **kw):
+#     return "text"
 
 
 # MainThread db

@@ -1,15 +1,15 @@
-from webapp.authenticate.base import Authenticate, NotAuthenticate
-import webapp.api as API
+from webapp.authenticate.base import NotAuthenticate
 try:
     import ldap
-
+    from webapp.authenticate.base import Authenticate
+    import webapp.api as API
 
     class InvalidConfiguration( Exception ): pass
 
 
-    class LdapAuthenticate( object ):
-        def __init__(self):
-            super( LdapAuthenticate, self ).__init__()
+    class LdapAuthenticate( Authenticate ):
+        def __init__( self, method = 'LDAP' ):
+            super( LdapAuthenticate, self ).__init__( method )
             self.__config = API.app.config( 'LDAP_AUTHENTICATOR', { } )
             self.__userdata = None
             return

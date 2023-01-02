@@ -25,7 +25,7 @@ import logging.config
 import logging.handlers
 import traceback
 import importlib
-
+from flask import jsonify
 from inspect import signature
 from webapp.version import version, date, author
 import webapp.api as API
@@ -40,7 +40,6 @@ from webapp.extensions.flask import Flask
 import webapp.extensions.database              # noqa
 import webapp.extensions.marshmallow           # noqa
 import webapp.extensions.migrate               # noqa
-
 
 # Try to load optional packages
 try:
@@ -112,9 +111,10 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         :return:            The application object.
     """
     API.app = None
+    API.rootPath = root_path
     saved_stderr = sys.stderr
     try:
-        root_path = ResolveRootPath( root_path )
+        root_path = ResolveRootPath( API.rootPath )
         print( "Starting Flask application, loading configuration." )
         API.app = Flask( __name__.split( '.' )[ 0 ],
                          static_url_path    = "",
@@ -146,26 +146,6 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             print( "Exception: {} during loading of the configuration".format( exc ),
                    file = sys.stderr )
             raise
-            # # Try to load configuration from know locations and files
-            # if config_file is None:
-            #     current_dir = os.path.dirname( __file__ )
-            #     for searchdir in [ os.path.join( current_dir, '..' ),
-            #                        current_dir ]:
-            #         for searchfile in[ 'config.yml', 'config.yaml', 'config.json', 'config.conf' ]:
-            #             print( os.path.abspath( os.path.join( searchdir, searchfile ) ) )
-            #             if os.path.isfile( os.path.abspath( os.path.join( searchdir, searchfile ) ) ):
-            #                 config_file = os.path.abspath( os.path.join( searchdir, searchfile ) )
-            #                 break
-            #
-            #         if config_file is not None:
-            #             break
-            #
-            # if config_file is None:
-            #     print( "The config file is missing", file = sys.stderr )
-            #     exit( -1 )
-            #
-            # print( "Config file: {}".format( os.path.join( root_path, config_file ) ) )
-            # API.app.config.fromFile( os.path.join( root_path, config_file ) )
 
         # Setup logging for the application
         if 'logging' in API.app.config:
@@ -211,14 +191,15 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             API.app.logger  = logging.getLogger( logging_name )
 
         API.logger      = API.app.logger
-        API.app.logger.warning( "Logging Flask application: {}".format( logging.getLevelName( API.app.logger.level ) ) )
+        API.app.logger.info( "Logging Flask application: {}".format( logging.getLevelName( API.app.logger.level ) ) )
         if os.environ.get( 'FLASK_DEGUG', 0 ) == 1:
             API.app.logger.info( "{}".format( yaml.dump( API.app.config.struct, default_flow_style = False ) ) )
         API.logger = API.app.logger
         sys.stderr = LoggerWriter( API.app.logger.warning )
 
-        # register cache
-        API.cache.init_app( API.app )
+        if API.cache is not None:
+            # register cache
+            API.cache.init_app( API.app )
 
         # import tracking, locking and feedback standard modules
         import webapp.backend
@@ -241,20 +222,29 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         API.app.logger.info( "AngularPath : {}".format( API.app.config[ 'ANGULAR_PATH' ] ) )
         API.app.static_folder   = os.path.join( root_path, API.app.config[ 'ANGULAR_PATH' ] ) + "/"
         API.app.url_map.strict_slashes = False
+        def processApplicationModule( api_module ):
+            module = importlib.import_module( api_module + ".main" )
+            API.app.logger.debug("Application module : {}".format( module ) )
+            registerAngular()
+            if hasattr( module, 'registerApi' ):
+                sig = signature( module.registerApi )
+                if len( sig.parameters ) == 2:
+                    module.registerApi( API.app, API.db )
+
+                else:
+                    module.registerApi()
+
+            return
+
         if module is None and 'API_MODULE' in API.app.config:
-            API.app.logger.info("Loading module : {}".format( API.app.config[ 'API_MODULE' ] ) )
+            API.app.logger.debug("Loading module : {}".format( API.app.config[ 'API_MODULE' ] ) )
             # import testrun.main to import registerApi,registerExtensions,registerShellContext,registerCommands,registerErrorHandler
-            module = importlib.import_module( API.app.config[ 'API_MODULE' ] + ".main" )
+            if isinstance( API.app.config[ 'API_MODULE' ], str ):
+                processApplicationModule( API.app.config[ 'API_MODULE' ] )
 
-        API.app.logger.info("Application module : {}".format( module ) )
-        registerAngular()
-        if hasattr( module, 'registerApi' ):
-            sig = signature( module.registerApi )
-            if len( sig.parameters ) == 2:
-                module.registerApi( API.app, API.db )
-
-            else:
-                module.registerApi()
+            elif isinstance( API.app.config[ 'API_MODULE' ], list ):
+                for api_module in API.app.config[ 'API_MODULE' ]:
+                    processApplicationModule( api_module )
 
         # Check for Flask_MonitoringDashboard
         if dashboard is None:
@@ -280,6 +270,11 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
     # register table name class mapping
     API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
+    # Register the MENU routes
+    @API.app.route( "/api/menu", methods=[ 'GET' ] )
+    def getAppMenu():
+        # return jsonify( API.menuItems )
+        return jsonify( API.menu.getMenu( '*' ) )  # All
 
     return API.app
 
@@ -298,5 +293,3 @@ def SetApiReferences( api ):
     # TODO: This is at the wrong place, but now now it works
     API.C_TESTRUN_OBJECT = "testrunObject"
     return
-
-

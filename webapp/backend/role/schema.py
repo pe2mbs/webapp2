@@ -28,7 +28,8 @@ class RoleSchema( API.mm.SQLAlchemySchema ):
     When modifing the file make sure that you remove the table from the configuration.
     """
     R_ID                = fields.Integer()
-    R_ROLE              = fields.String()
+    R_NAME              = fields.String()
+    A_R_ID              = fields.Integer()
     R_DEFAULT_CREATE    = fields.Boolean()
     R_DEFAULT_READ      = fields.Boolean()
     R_DEFAULT_UPDATE    = fields.Boolean()

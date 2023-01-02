@@ -28,10 +28,10 @@ class Role( API.db.Model, CrudModelMixin ):
     When modifing the file make sure that you remove the table from the configuration.
     """
     __field_list__      = ['R_ID', 'R_ROLE', 'R_REMARK', 'R_DEFAULT_CREATE', 'R_DEFAULT_READ', 'R_DEFAULT_UPDATE', 'R_DEFAULT_DELETE' ]
-    __tablename__       = 'role'
+    __tablename__       = 'roles'
     __schema_cls__       = RoleSchema()
     R_ID                = API.db.Column( "r_id", API.db.Integer, autoincrement = True, primary_key = True )
-    R_ROLE              = API.db.Column( "r_role", API.db.String( 255 ), nullable = False )
+    R_NAME              = API.db.Column( "r_name", API.db.String( 255 ), nullable = False )
     R_DEFAULT_CREATE    = API.db.Column( "r_default_create", API.db.Boolean, default = False )
     R_DEFAULT_READ      = API.db.Column( "r_default_read", API.db.Boolean, default = True )
     R_DEFAULT_UPDATE    = API.db.Column( "r_default_update", API.db.Boolean, default = False )
@@ -42,13 +42,18 @@ class Role( API.db.Model, CrudModelMixin ):
     def memoryInstance( self ):
         return RoleMemory( self )
 
+    def cloneRecord( self, record ):
+        for field in self.__field_list__:
+            setattr( record, field, getattr( self, field ) )
+
+        return
 
 API.dbtables.register( Role )
 
 
 class RoleMemory( DbBaseMemory ):
     __model_cls__       = Role
-    __tablename__       = 'role'
+    __tablename__       = 'roles'
 
 
 API.memorytables.register( RoleMemory )

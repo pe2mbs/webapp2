@@ -1,0 +1,26 @@
+source:
+    base:                           /home/mbertens/src/python/webapp2
+    python:                         .
+    angular:                        frontend-v10/src/app
+templates:
+    base:                           /home/mbertens/src/python/webapp2/gencrud/templates-v10
+    python:                         python
+    angular:                        angular
+    common:
+        base:                       /home/mbertens/src/python/webapp2/gencrud/templates-v10
+        python:                     python
+        angular:                    angular
+options:
+    ignore-case-db-ids:             true
+    overwrite:                      true
+    use-module:                     true
+    generate-tests:                 false
+references:
+    app-module:
+        filename:                   app.module.ts
+        class:                      AppModule
+        module:                     app.module.ts
+    app-routing:
+        filename:                   app.routingmodule.ts
+        class:                      AppRoutingModule
+        module:                     app.routingmodule.ts

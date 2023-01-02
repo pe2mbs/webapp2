@@ -30,48 +30,58 @@ class UserViewMixin():
     def pageSize( self ):
         self.checkAuthentication()
         username = get_jwt_identity()
-        userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
-        return jsonify( pageSize = userRecord.U_LISTITEMS,
-                        pageSizeOptions = [ 5, 10, 25, 100 ] )
+        defaultPageSize = [ 5, 10, 25, 100 ]
+        try:
+            userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
+            pageSize = userRecord.U_LISTITEMS
+
+        except NoResultFound:
+            pageSize = defaultPageSize
+            pass
+
+        return jsonify( pageSize = pageSize, pageSizeOptions = defaultPageSize )
 
     @jwt_required
     def restoreProfile( self, username ):
         self.checkAuthentication()
+        profileData = { 'locale': 'en_GB',
+                        'pageSize': 10,
+                        'pageSizeOptions': [ 5, 10, 25, 100 ],
+                        'user': 'guest',
+                        'fullname': "Guest",
+                        'role': 0,
+                        'roleString': 'Guest',
+                        'theme': 'light-theme', 'objects': { },
+                        'profilePage': '', 'profileParameters': {} }
         if username not in ( '', None, 'undefined' ):
             API.logger.info( "Restore profile for user: {}".format( username ) )
-            userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
-            if userRecord.U_PROFILE is None:
-                userRecord.U_PROFILE = ''
+            try:
+                userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
+                if userRecord.U_PROFILE is None:
+                    userRecord.U_PROFILE = ''
 
-            if userRecord.U_PROFILE.startswith( '{' ) and userRecord.U_PROFILE.endswith( '}' ):
-                # TODO: This needs to be moved to it own field U_PROFILE
-                data = json.loads( userRecord.U_PROFILE )
+                if userRecord.U_PROFILE.startswith( '{' ) and userRecord.U_PROFILE.endswith( '}' ):
+                    # TODO: This needs to be moved to it own field U_PROFILE
+                    data = json.loads( userRecord.U_PROFILE )
 
-            else:
-                data = { }
+                else:
+                    data = { }
 
-            profileData = { 'locale': userRecord.U_LOCALE,
-                            'pageSize': userRecord.U_LISTITEMS,
-                            'pageSizeOptions': [ 5, 10, 25, 100 ],
-                            'user': userRecord.U_NAME,
-                            'fullname': "{} {}".format( userRecord.U_FIRST_NAME, userRecord.U_LAST_NAME ),
-                            'role': userRecord.U_ROLE,
-                            'roleString': userRecord.U_ROLE_FK.R_ROLE,
-                            'theme': data.get( 'theme', 'light-theme' ),
-                            'objects': data.get( 'objects', { } ),
-                            'profilePage': '/user/edit',
-                            'profileParameters': { 'id': 'U_ID', 'mode': 'edit', 'value': userRecord.U_ID, } }
-            API.logger.info( "RESTORE.PROFILE: {}".format( profileData ) )
-        else:
-            profileData = { 'locale': 'en_GB',
-                            'pageSize': 10,
-                            'pageSizeOptions': [ 5, 10, 25, 100 ],
-                            'user': 'guest',
-                            'fullname': "Guest",
-                            'role': 0,
-                            'roleString': 'Guest',
-                            'theme': 'light-theme', 'objects': { },
-                            'profilePage': '', 'profileParameters': {} }
+                profileData = { 'locale': userRecord.U_LOCALE,
+                                'pageSize': userRecord.U_LISTITEMS,
+                                'pageSizeOptions': [ 5, 10, 25, 100 ],
+                                'user': userRecord.U_NAME,
+                                'fullname': "{} {}".format( userRecord.U_FIRST_NAME, userRecord.U_LAST_NAME ),
+                                'role': userRecord.U_ROLE,
+                                'roleString': userRecord.U_ROLE_FK.R_ROLE,
+                                'theme': data.get( 'theme', 'light-theme' ),
+                                'objects': data.get( 'objects', { } ),
+                                'profilePage': '/user/edit',
+                                'profileParameters': { 'id': 'U_ID', 'mode': 'edit', 'value': userRecord.U_ID, } }
+                API.logger.info( "RESTORE.PROFILE: {}".format( profileData ) )
+
+            except NoResultFound:
+                pass
 
         return jsonify( profileData )
 
@@ -82,12 +92,16 @@ class UserViewMixin():
         username = get_jwt_identity()
         if username not in ( '', None, 'undefined' ):
             API.logger.info( "Store profile for user: {}".format( username ) )
-            userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
-            data = { 'theme': profileData.get( 'theme', 'light-theme' ),
-                     'objects': profileData.get( 'objects', { } ) }
-            userRecord.U_PROFILE = json.dumps( data )
-            API.logger.info( "STORE.PROFILE: {}".format( userRecord.U_PROFILE ) )
-            API.db.session.commit()
+            try:
+                userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
+                data = { 'theme': profileData.get( 'theme', 'light-theme' ),
+                         'objects': profileData.get( 'objects', { } ) }
+                userRecord.U_PROFILE = json.dumps( data )
+                API.logger.info( "STORE.PROFILE: {}".format( userRecord.U_PROFILE ) )
+                API.db.session.commit()
+
+            except NoResultFound:
+                pass
 
         else:
             API.logger.error( "Missing username" )
@@ -96,7 +110,7 @@ class UserViewMixin():
 
     JWT_KEY = 'verysecretkey'
 
-    def encodeToken( self, username, userrole, keepsignedin ):
+    def encodeToken( self, username, keepsignedin ):
         """
             “exp” (Expiration Time) Claim
             “nbf” (Not Before Time) Claim
@@ -140,33 +154,14 @@ class UserViewMixin():
 
         username = data.get( 'userid', None )
         passwd = data.get( 'password', None )
-        keepsignedin = data.get( 'keepsignedin', False )
-        try:
-            authenticator = initAuthenticator()
-            authenticator.Authenticate( username, passwd )
+        result = self.__authentcatior.Authenticate( username, passwd )
+        if result:
+            token = self.encodeToken( username, data.get( 'keepsignedin', False ) )
 
-            API.logger.info( "data: {}".format( data ) )
-            userRecord: User = API.db.session.query( User ).filter( User.U_NAME == username ).one()
-            if userRecord.U_ACTIVE:
-                API.app.logger.debug( "User '{}' password '{}' == '{}'".format( username, userRecord.U_HASH_PASSWORD, passwd ) )
-                if userRecord.U_HASH_PASSWORD == passwd:
-                    return jsonify( result = True, token = self.encodeToken( username,
-                                                                             userRecord.U_ROLE,
-                                                                             keepsignedin ) )
+        else:
+            token = None
 
-                else:
-                    API.app.logger.error( "User '{}' password verify fail".format( username ) )
-
-            else:
-                API.app.logger.error( "User '{}' not active".format( username ) )
-
-        except NoResultFound:
-            API.app.logger.error( "User '{}' not found".format( username ) )
-
-        except Exception:
-            API.app.logger.error( traceback.format_exc() )
-
-        return jsonify( result = False )
+        return jsonify( result = result, token = token )
 
     def getUserSignup( self ):
         """The user sign-up is used for registering an new user into the database,
@@ -178,6 +173,10 @@ class UserViewMixin():
         API.app.logger.info( data )
         if data is None:
             return "Invalid request, missing user data", 500
+
+        authMethod = API.app.config.get( 'AUTHENTICATE', '' )
+        if authMethod in ( "PAM", "LDAP" ):
+            return jsonify( result = False, message = f"Account must be pre-registered via {authMethod}" )
 
         username = data.get( 'username', None )
         passwd = data.get( 'password', None )
