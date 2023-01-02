@@ -9,14 +9,14 @@ class AuthenticateInfo( object ):
 
     Its based on the standard LDAP attributes
     """
-    def __init__( self, username: str ):
-        self.__username = username
+    def __init__( self ):
         return
 
-    @property
     # The simplified username without any profix or suffix
-    def username( self ) -> str:
-        return self.__username
+    def _getUsername( self ) -> Union[str,None]:
+        return None
+
+    username                    = property( fget = _getUsername )
 
     # Standnrd LDAP attributes
     # DN – also distinguishedName	DN is simply the most important LDAP attribute.
@@ -236,7 +236,7 @@ class AuthenticateInfo( object ):
 
     # Normally this is the same value as the sAMAccountName, but could be different if you wished.  Needed for mail enabled contacts.
     def _getMailNickname( self ) -> Union[str,None]:
-        return None
+        return self._getSAMAccountName()
 
     mailNickname                = property( fget = _getMailNickname )
 
@@ -274,8 +274,13 @@ class AuthenticateInfo( object ):
 
 
 class Authenticate( object ):
-    def __init__( self ):
+    def __init__( self, method = 'NONE' ):
+        self.__method = method
         return
+
+    @property
+    def Method( self ):
+        return self.__method
 
     def Authenticate( self, username, password ) -> bool:
         return True

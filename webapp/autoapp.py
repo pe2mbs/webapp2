@@ -43,7 +43,7 @@ try:
         # STDERR and STDOUT to the NULL device.
         sys.stdout = open( os.devnull, 'w' )
         sys.stderr = open( os.devnull, 'w' )
-
+    API.rootPath = os.path.abspath('.')
     app = createApp( os.path.abspath( os.path.curdir ) )
 
 except SystemExit:

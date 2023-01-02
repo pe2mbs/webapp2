@@ -20,8 +20,7 @@
 #
 from flask import Blueprint, request, jsonify
 import webapp.api as API
-from webapp.common import CrudInterface, RecordLock
-import traceback
+from webapp.common import CrudInterface, RecordLock, createMenuHash
 from webapp.backend.role.model import Role
 from webapp.backend.role.schema import RoleSchema
 
@@ -32,27 +31,18 @@ webappRoleApi = Blueprint( 'webappRoleApi', __name__ )
 # Args is for downwards compatibility !!!!!
 def registerApi( *args ):
     # Set the logger for the users module
-    API.app.logger.info( 'Register Role routes' )
+    API.app.logger.debug( 'Register Role routes' )
     API.app.register_blueprint( webappRoleApi )
-    try:
-        import backend.role.entry_points  as EP
-        if hasattr( EP, 'entryPointApi' ):
-            API.app.logger.info( 'Register Role entrypoint routes' )
-            API.app.register_blueprint( EP.entryPointApi )
-
-        if hasattr( EP, 'registerWebSocket' ):
-            EP.registerWebSocket()
-
-    except ModuleNotFoundError as exc:
-        if exc.name != 'backend.role.entry_points':
-            API.app.logger.error( traceback.format_exc() )
-
-    except Exception:
-        API.app.logger.error( traceback.format_exc() )
-
-    # TODO: Here we need to add dynamically the menus for this module
+    # Register at 'Administration' -> 'Users, Roles and Access'
+    API.menu.register( {
+        'caption':  'Roles',
+        'id':       createMenuHash( 'Roles' ),
+        'access':   'menu:user_role_access',
+        'after':    'Users',
+        'before':   'Access',
+        'route':    '/role'
+    }, 'Administration', 'Users, Roles and Access' )
     return
-
 
 
 class RoleRecordLock( RecordLock ):

@@ -1,0 +1,6 @@
+name:                 edit
+label:                Edit
+type:                 screen
+icon:                 edit
+position:             row
+function:             self.editRecord( idx, row )

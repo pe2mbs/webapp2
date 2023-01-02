@@ -19,15 +19,15 @@
 #
 import os
 from flask_marshmallow import Marshmallow
-from webapp.common.util import TableManager
+from webapp.common.tablemngt import TableManager
+from webapp.common.menu import WebappMenu
+
 
 app             = None
-menuItems       = []
-applicInfo      = {}
-plugins         = None
-coreApi         = None
+menu            = WebappMenu()
 listModules     = []
-plugins         = []
+applicInfo      = {}
+coreApi         = None
 loggingInfo     = {}
 bcrypt          = None
 migrate         = None
@@ -43,6 +43,7 @@ socketio        = None
 logger          = None
 HERE            = os.path.abspath( os.path.dirname( __file__ ) )
 PROJECT_ROOT    = os.path.join( HERE, os.pardir )
+rootPath        = PROJECT_ROOT
 recordTracking  = None
 dbtables        = TableManager()
 memorytables    = TableManager()

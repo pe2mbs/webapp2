@@ -1,16 +1,16 @@
-from backend.authenticate.linux_pam import PamAuthenticate
+from webapp.authenticate.linux_pam import PamAuthenticate
 import traceback
 import hashlib
 import time
 import json
 from sqlalchemy.orm.exc import NoResultFound
-from backend.user.model import User
+from webapp.backend.user.model import User
 import webapp.api as API
 
 
 class DbPamAuthenticate( PamAuthenticate ):
     def __init__( self ):
-        super( DbPamAuthenticate, self ).__init__()
+        super( DbPamAuthenticate, self ).__init__( 'DB-PAM' )
         self.MAX_PASSWORD_TRIES = API.app.config.get( 'MAX_PASSWORD_TRIES', 5 )
         self.MAX_WINDOW         = API.app.config.get( 'MAX_LOGGED_IN_WINDOW', 8 * 3600 )
         return

@@ -101,7 +101,7 @@ class RecordLock( object ):
 
     @classmethod
     def locked( cls, request, user = None ):
-        from webapp.common.locking.model import RecordLocks
+        from webapp.backend.locking.model import RecordLocks
         obj = cls()
         if user is None:
             user = obj.user
@@ -138,7 +138,7 @@ class RecordLock( object ):
 
     @classmethod
     def unlock( cls, request, user = None ):
-        from webapp.common.locking.model import RecordLocks
+        from webapp.backend.locking.model import RecordLocks
         data = getDictFromRequest( request )
         obj = cls()
         if user is None:
@@ -183,7 +183,7 @@ class RecordLock( object ):
 
     @classmethod
     def lock( cls, request, user = None ):
-        from webapp.common.locking.model import RecordLocks
+        from webapp.backend.locking.model import RecordLocks
         data = getDictFromRequest( request )
         obj = cls()
         if user is None:
@@ -686,6 +686,7 @@ class CrudInterface( object ):
         cache.delete_memoized(self.recordGetColValue)
         cache.delete_memoized(self.pagedList)
         cache.delete_memoized(self.selectList)
+        return
 
     def recordCount( self ):
         return jsonify( recordCount = API.db.session.query( self._model_cls ).count() )

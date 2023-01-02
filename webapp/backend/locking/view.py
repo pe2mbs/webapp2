@@ -20,7 +20,7 @@
 #
 from flask import Blueprint, request, jsonify
 import webapp.api as API
-from webapp.common.crud import CrudInterface, RecordLock
+from webapp.common import CrudInterface, RecordLock, createMenuHash
 from webapp.backend.locking.model import RecordLocks
 from webapp.backend.locking.schema import RecordLocksSchema
 from webapp.backend.locking.mixin import RecordLocksViewMixin
@@ -32,8 +32,22 @@ lockingApi = Blueprint( 'lockingApi', __name__ )
 # Args is for downwards compatibility !!!!!
 def registerApi( *args ):
     # Set the logger for the users module
-    API.app.logger.info( 'Register RecordLocks routes' )
+    API.app.logger.debug( 'Register RecordLocks routes' )
     API.app.register_blueprint( lockingApi )
+    API.menu.register( {
+        'caption': 'Track and Trace',
+        'id':       createMenuHash( 'Track and Trace' ),
+        'access':   'menu:tracking_locking',
+        'after':    'Users, Roles and Access',
+        'befone':   '*',
+        'children': [ {
+            'caption': 'Locking',
+            'id':       createMenuHash( 'Locking' ),
+            'access':   'menu:locking',
+            'after':    'Tracking',
+            'before':   '*',
+            'route':    '/locking'
+        } ] }, 'Administration' )
     return
 
 

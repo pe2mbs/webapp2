@@ -9,7 +9,7 @@ from webapp.authenticate.base import Authenticate
 
 class DbAuthenticate( Authenticate ):
     def __init__(self):
-        super( DbAuthenticate, self ).__init__()
+        super( DbAuthenticate, self ).__init__( 'DB' )
         return
 
     MAX_PASSWORD_TRIES = 5

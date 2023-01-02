@@ -2,7 +2,7 @@
 """Main webapp application package."""
 #
 # Main webapp application package
-# Copyright (C) 2018-2020 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
+# Copyright (C) 2018-2023 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
 #
 # This library is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Library General Public License GPL-2.0-only
@@ -24,3 +24,5 @@ from webapp.common.crud import CrudInterface, RecordLock
 from webapp.common.convert import value2Label, utcDateString2Local
 from webapp.common.dbmem import DbBaseMemory
 from webapp.common.crudmixin import CrudModelMixin
+from webapp.common.tablemngt import TableManager
+from webapp.common.menu import WebappMenu, createMenuHash

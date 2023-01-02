@@ -20,8 +20,7 @@
 #
 from flask import Blueprint, request, jsonify
 import webapp.api as API
-from webapp.common.crud import CrudInterface, RecordLock
-import traceback
+from webapp.common import CrudInterface, RecordLock, createMenuHash
 from webapp.backend.tracking.model import Tracking
 from webapp.backend.tracking.schema import TrackingSchema
 from webapp.backend.tracking.mixin import TrackingViewMixin
@@ -33,8 +32,16 @@ trackingApi = Blueprint( 'trackingApi', __name__ )
 # Args is for downwards compatibility !!!!!
 def registerApi( *args ):
     # Set the logger for the users module
-    API.app.logger.info( 'Register Tracking routes' )
+    API.app.logger.debug( 'Register Tracking routes' )
     API.app.register_blueprint( trackingApi )
+    API.menu.register( {
+        'caption': 'Tracking',
+        'id':       createMenuHash( 'Tracking' ),
+        'access':   'menu:tracking',
+        'after':    None,       #   TOP sun-menu entry
+        'before':   'Locking',
+        'route':    '/tracking'
+    }, 'Administration', 'Track and Trace' )
     return
 
 

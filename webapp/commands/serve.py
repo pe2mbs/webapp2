@@ -169,7 +169,7 @@ def dev( info, hostname, port, use_reloader, use_debugger, with_threads, cert ):
     appApiMod   = applic.config.get( 'API_MODULE', '' )
     extra_files.extend( [ os.path.join( appPath, appApiMod, 'menu.yaml' ),
                           os.path.join( appPath, appApiMod, 'release.yaml' ) ] )
-    if API.socketio is not None:
+    if API.app.config.get( 'USE_EXTENSIONS', {} ).get( "SOCKETIO", False ):
         app.debug = True
         API.socketio.run( app, hostname, port,
                           debug = use_debugger,

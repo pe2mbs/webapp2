@@ -20,7 +20,7 @@
 #
 from flask import Blueprint
 import webapp.api as API
-from webapp.common import CrudInterface, RecordLock
+from webapp.common import CrudInterface, RecordLock, createMenuHash
 from webapp.backend.user.model import User
 from webapp.backend.user.schema import UserSchema
 from webapp.backend.user.view_mixin import UserViewMixin
@@ -32,8 +32,36 @@ webappUserApi = Blueprint( 'webappUserApi', __name__ )
 # Args is for downwards compatibility !!!!!
 def registerApi( *args ):
     # Set the logger for the users module
-    API.app.logger.info( 'Register User routes' )
+    API.app.logger.debug( 'Register User routes' )
     API.app.register_blueprint( webappUserApi )
+    # Register at 'Administration' -> 'Users, Roles and Access'
+    # Including the full 'Administration' and 'Users, Roles and Access' menu items
+    API.menu.register( {
+        'caption': 'Administration',    # Where ever the Administration menu was added, when it was not there we add it to the end
+        'id':       createMenuHash( 'Administration' ),
+        'access':   'menu:admin',
+        'after':    '*',
+        'before':   'Feedback',
+        'children': [
+            {
+                'caption': 'Users, Roles and Access',
+                'id':       createMenuHash( 'Users, Roles and Access' ),
+                'access':   'menu:user_role_access',
+                'after':    None,               #   TOP menu entry
+                'before':   '*',
+                'children': [
+                    {
+                        'caption':  'Users',
+                        'id':       createMenuHash( 'Users' ),
+                        'access':   'menu:user_role_access',
+                        'after':    None,       #   TOP sun-menu entry
+                        'before':   'Roles',
+                        'route':    '/user'
+                    }
+                ]
+            }
+        ]
+    } )
     return
 
 
@@ -48,7 +76,7 @@ class UserCurdInterface( CrudInterface, UserViewMixin ):
     _lock_cls = UserRecordLock
     _schema_cls = UserSchema()
     _schema_list_cls = UserSchema( many = True )
-    _uri = '/api/webapp/user'
+    _uri = '/api/user'
     _relations = []
 
     def __init__( self ):
