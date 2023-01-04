@@ -85,7 +85,7 @@ class UserCurdInterface( CrudInterface, UserViewMixin ):
         return
 
     def beforeUpdate( self, record ):
-        for field in ( "U_ID", "U_ACTIVE_LABEL", "U_ROLE_FK", "U_MUST_CHANGE_LABEL", "U_LISTITEMS_LABEL", ):
+        for field in ( "U_ID", "U_ACTIVE_LABEL", "U_R_ID_FK", "U_MUST_CHANGE_LABEL", "U_LISTITEMS_LABEL", ):
             if field in record:
                 del record[ field ]
 

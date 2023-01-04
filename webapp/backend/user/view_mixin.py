@@ -73,7 +73,7 @@ class UserViewMixin():
                                 'user': userRecord.U_NAME,
                                 'fullname': "{} {}".format( userRecord.U_FIRST_NAME, userRecord.U_LAST_NAME ),
                                 'role': userRecord.U_ROLE,
-                                'roleString': userRecord.U_ROLE_FK.R_ROLE,
+                                'roleString': userRecord.U_R_ID_FK.R_ROLE,
                                 'theme': data.get( 'theme', 'light-theme' ),
                                 'objects': data.get( 'objects', { } ),
                                 'profilePage': '/user/edit',

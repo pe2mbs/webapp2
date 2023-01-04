@@ -11,8 +11,5 @@ modules = [
     access,
     locking,
     tracking,
-    feedback,
-    user,
-    access,
-    role
+    feedback
 ]
