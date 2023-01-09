@@ -19,6 +19,9 @@ from typing import Union
 from datetime import datetime
 
 
+__docformat__ = 'epytext'
+
+
 class AuthenticateInfo( object ):
     """This object provides user information for all Authentication methods
     Some fields shall be set to None (null) as they are not available for an
@@ -368,23 +371,83 @@ class AuthenticateInfo( object ):
 
 
 class Authenticate( object ):
+    """Base class for all the authenicate methods
+
+    """
     def __init__( self, method = 'NONE' ):
         self.__method = method
         return
 
     @property
     def Method( self ):
+        """Gives the current authentication module name
+
+        Current builtin options:
+        NONE                All allowed, not password verification, any password allowed.
+        LOCKED              All blocked
+        PAM                 Linux PAM authentication
+        LDAP                LDAP authentication for Linux and Windows
+        DB-PAM              Linux PAM authentication with user database
+        DB-LDAP             LDAP authentication with user database for Linux and Windows
+
+        NONE, PAM and LDAP when the user is authenticated the user is logged in into the
+        application in the user table the user should be present.
+
+        DB-**** These authentication modules use the local application user table to verify
+        that the user is allowed to use the application, and store the hashed password for daily
+        verification instead of everytime using PAM or LDAP.
+
+
+
+        @rtype:         string
+        @return:        current authentication module name
+        """
         return self.__method
 
     def Authenticate( self, username, password ) -> bool:
+        """Dummy authentication method, open
+
+        @type username:     string
+        @param username:    username to verify
+        @type password:     string
+        @param password:    password to verify
+
+        @rtype:             boolean
+        @return:            True
+        """
         return True
 
     def _getUserInfo( self ) -> Union[AuthenticateInfo,None]:
+        """This normally returns the user information, in this case no user information is available.
+
+        This private class method should be overridden by the decended class, to return the approriate
+        AuthenticateInfo class
+
+        @rtype:             None
+        @return:            None
+        """
         return None
 
     UserInfo: AuthenticateInfo = property( fget=_getUserInfo, fset=None, fdel=None, doc=None)
+    """UserInfo property, gives the user AuthenticateInfo class attributes that are avaiable for that
+    authentication method, the property may return None.
+    """
 
 
 class NotAuthenticate( Authenticate ):
+    def __init__( self ):
+        super( NotAuthenticate, self ).__init__( 'LOCKED' )
+        return
+
     def Authenticate( self, username, password ) -> bool:
+        """Dummy authentication method, locked
+
+        @type username:     string
+        @param username:    username to verify
+        @type password:     string
+        @param password:    password to verify
+
+        @rtype:             boolean
+        @return:            False
+        """
         return False
