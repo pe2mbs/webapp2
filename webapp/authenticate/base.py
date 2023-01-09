@@ -290,68 +290,81 @@ class AuthenticateInfo( object ):
     """
 
     # EXAMPLES OF EXCHANGE SPECIFIC LDAP ATTRIBUTES
-    # Here is where you set the MailStore
     def _getHomeMDB( self ) -> Union[str,None]:
         return None
 
     homeMDB                     = property( fget = _getHomeMDB )
+    """homeMDB property, Here is where the MailStore is located
+    """
 
-    # Legacy distinguished name for creating Contacts. In the following example,
-    # Guy Thomas is a Contact in the first administrative group of GUYDOMAIN: /o=GUYDOMAIN/ou=first administrative group/cn=Recipients/cn=Guy Thomas
     def _getLegacyExchangeDN( self ) -> Union[str,None]:
         return None
 
     legacyExchangeDN            = property( fget = _getLegacyExchangeDN )
+    """legacyExchangeDN property, Legacy distinguished name for creating Contacts. In the following example,
+    # John Doe is a Contact in the first administrative group of EAMPLEDOMAIN: /o=EAMPLEDOMAIN/ou=first administrative group/cn=Recipients/cn=John Doe
+    """
 
-    # An easy, but important attribute.  A simple SMTP address is all that is required billyn@ourdom.com
     def _getMail( self ) -> Union[str,None]:
         return None
 
     mail                        = property( fget = _getMail )
+    """mail property, A simple SMTP address is all that is required john.doe@example.com
+    """
 
-    # FALSE	Indicates that a contact is not a domain user.
     def _getMAPIRecipient( self ) -> Union[str,None]:
         return None
 
     mAPIRecipient               = property( fget = _getMAPIRecipient )
+    """mAPIRecipient propery, FALSE	Indicates that a contact is not a domain user.
+    """
 
-    # Normally this is the same value as the sAMAccountName, but could be different if you wished.  Needed for mail enabled contacts.
     def _getMailNickname( self ) -> Union[str,None]:
         return self._getSAMAccountName()
 
     mailNickname                = property( fget = _getMailNickname )
+    """mailNickname property, Normally this is the same value as the sAMAccountName, but could be different if you wished.  Needed for mail enabled contacts.
+    """
 
-    # Another straightforward field, just the value to: True
     def _getMDBUseDefaults( self ) -> bool:
         return False
 
     mDBUseDefaults              = property( fget = _getMDBUseDefaults )
+    """mDBUseDefaults property, norammly set to TRUE
+    """
 
-    # Exchange needs to know which server to deliver the mail.  Example:
-    #     /o=YourOrg/ou=First Administrative Group/cn=Configuration/cn=Servers/cn=MailSrv
     def _getMsExchHomeServerName( self ) -> Union[str,None]:
         return None
 
     msExchHomeServerName        = property( fget = _getMsExchHomeServerName )
+    """msExchHomeServerName property, Exchange needs to know which server to deliver the mail.
 
-    # As the name ‘proxy’ suggests, it is possible for one recipient to have more than one email address.  Note the plural spelling of proxyAddresses.
+    Example:
+    /o=YourOrg/ou=First Administrative Group/cn=Configuration/cn=Servers/cn=MailSrv
+    """
+
     def _getProxyAddresses( self ) -> Union[str,None]:
         return None
 
     proxyAddresses              = property( fget = _getProxyAddresses )
+    """proxyAddresses property, As the name ‘proxy’ suggests, it is possible for one recipient to have more than one email address.
 
-    # SMTP:@ e-mail address.  Note that SMTP is case sensitive.  All capitals means the default address.
+    @note: the plural spelling of proxyAddresses.
+    """
+
     def _getTargetAddress( self ) -> Union[str,None]:
         return None
 
     targetAddress               = property( fget = _getTargetAddress )
+    """targetAddress property, SMTP:@ e-mail address.  Note that SMTP is case sensitive.  All capitals means the default address.
+    """
 
-    # Displays the contact in the Global Address List.
     def _getShowInAddressBook( self ) -> Union[str,None]:
         return None
 
     showInAddressBook           = property( fget = _getShowInAddressBook )
-
+    """showInAddressBook property, Displays the contact in the Global Address List.
+    """
 
 
 class Authenticate( object ):
