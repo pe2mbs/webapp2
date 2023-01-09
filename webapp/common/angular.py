@@ -28,48 +28,46 @@ from webapp.version import version, author, copyright
 __version__         = version
 __copyright__       = copyright
 __author__          = author
-
-
-ERROR_HTML = """<html>
-<head>
-    <title>Exception: Angular application is missing // Werkzeug Debugger</title>
-    <link rel="stylesheet" href="?__debugger__=yes&amp;cmd=resource&amp;f=style.css" type="text/css">
-    <link rel="shortcut icon" href="?__debugger__=yes&amp;cmd=resource&amp;f=console.png">
-    <script src="?__debugger__=yes&amp;cmd=resource&amp;f=jquery.js"></script>
-    <script src="?__debugger__=yes&amp;cmd=resource&amp;f=debugger.js"></script>
-</head>
-<body style="background-color: #fff">
-    <div class="debugger">
-        <h1>webapp Exception</h1>
-        <div class="detail">
-            <p class="errormsg">Exception: ${ message }</p>
-        </div>
-        <h2 class="traceback">${ reason }</h2>
-
-        <div class="explanation">
-            ${ explanation }
-        </div>
-    </body>
-</html>"""
-
-
-def renderErrorPage( message, reason = '', explanation = '' ):
-    return Template( ERROR_HTML ).render( message = message,
-                                          reason = reason,
-                                          explanation = explanation )
-
-
-class RegexConverter( BaseConverter ):
-    def __init__( self, url_map, *items ):
-        super( RegexConverter, self ).__init__( url_map )
-        self.regex = items[ 0 ]
+__docformat__       = 'epytext'
 
 
 bluePrint   = Blueprint( 'angular', __name__ )
 
 
+class RegexConverter( BaseConverter ):
+    """This class provides the regular expression URL converter class
+
+    """
+    def __init__( self, url_map, *items ):
+        super( RegexConverter, self ).__init__( url_map )
+        self.regex = items[ 0 ]
+
+
+def renderErrorPage( message, reason = '', explanation = '' ):
+    """Provides an error page when something goes wrong in the configuration.
+
+    The default content may be oberridden by setting the variable 'ANGULAR_ERROR_PAGE' in the Flask configuration.
+
+    @param message:         Problem desciption of the problem.
+    @param reason:          Details of the problem, may even be a traceback of the stack.
+    @param explanation:     Corrective actions to be taken to resolve the problem.
+
+    @rtype:                 string
+    @return:                returns a rendered page for the browser.
+    """
+    angular_error_page = current_app.config.get( 'ANGULAR_ERROR_PAGE', './' )
+    if not os.path.exists( angular_error_page ):
+        if os.path.exists( os.path.join( os.path.dirname( __file__ ), angular_error_page ) ):
+            angular_error_page = os.path.join( os.path.dirname( __file__ ), angular_error_page )
+
+    return Template( filename = angular_error_page ).render( message = message, reason = reason, explanation = explanation )
+
+
 def registerAngular():
-    # Set the logger for the oldangular module
+    """Registers the 'angular' blueprint in the backend. And setup the regex URL converter.
+
+    @return:            None
+    """
     API.app.url_map.converters[ 'regex' ] = RegexConverter
     API.app.register_blueprint( bluePrint )
     return
@@ -77,15 +75,27 @@ def registerAngular():
 
 @bluePrint.route( '/' )
 def index():
+    """Main entry point of the web server that provides the Angular application.
+
+    in the Flask configuration 'ANGULAR_PATH' must be set to the location where the index.html of the anglar application is located.
+
+    @rtype:             Flask Response object
+    @return:            object the reponse of the server
+    """
     angular_path = current_app.config[ 'ANGULAR_PATH' ]
     env = current_app.config[ 'ENV' ]
     current_app.logger.info( f"Angular dist ({env}) : {angular_path}" )
     try:
+        # Test if the path exists.
         if os.path.isdir( angular_path ):
+            # Test if the file 'index.html' exists.
             if os.path.isfile( os.path.join( angular_path, "index.html" ) ):
+                # Deliver the file 'index.html' to the browser
                 return send_from_directory( angular_path, "index.html" )
 
-            current_app.logger.info( "Python says file not found" )
+            # The file was not found, deliver a usefull page that the application clould not be loaded.
+            # Normally this only apears during development of the Angular application.
+            current_app.logger.info( f"Python says file not found for {angular_path}/index.html" )
             return renderErrorPage( "Angular application is missing",
                                     f"The frontend application was not found at {angular_path}",
                                     """Correct the ANGULAR_PATH in the configuration
@@ -93,19 +103,30 @@ def index():
                                      (re-)create the Angular application.
                                      """ )
         else:
-            current_app.logger.info( f"ANGULAR_PATH incorrect {angular_path}." )
+            # The path was not found, deliver a usefull page that the application clould not be loaded.
+            # Normally this only apears during development of the Angular application.
             current_app.logger.info( f"ANGULAR_PATH incorrect {angular_path}." )
             return renderErrorPage( f"ANGULAR_PATH incorrect {angular_path}.",
                                     f"The frontend folder was not found {angular_path}.",
                                     "Correct the ANGULAR_PATH in the configuration." )
 
     except Exception as exc:
-        current_app.logger.error( exc )
-        raise
+        # Log the error at this point
+        current_app.logger.exception( exc )
+        # re-raise the exception
+        raise from None
 
 
 @bluePrint.route( r"/<regex('\w\.(js|css|map|ico|jpg|eps|png|woff|woff2|svg|eot|ttf)'):path>" )
 def angularSource( path ):
+    """This entry point provides all the files that are retrieved by the Angular application.
+
+    @type path:         string
+    @param path:        path and filename of Angular application file to be retrieved.
+
+    @rtype:             Flask Response object
+    @return:            object the reponse of the server
+    """
     angular_path = current_app.config[ 'ANGULAR_PATH' ]
     env = current_app.config[ 'ENV' ]
     current_app.logger.info( f"Angular dist ({env}) : {angular_path}" )
@@ -114,6 +135,14 @@ def angularSource( path ):
 
 @bluePrint.route( r"/assets/<regex('\w\.(ico|jpg|eps|png|woff|woff2|svg|eot|ttf)'):path>" )
 def angularAsserts( path ):
+    """This entry point provides all the files that are retrieved by the Angular application for the /assets/ path.
+
+    @type path:         string
+    @param path:        path and filename of Angular application file to be retrieved.
+
+    @rtype:             Flask Response object
+    @return:            object the reponse of the server
+    """
     angular_path = current_app.config[ 'ANGULAR_PATH' ]
     env = current_app.config[ 'ENV' ]
     current_app.logger.info( "Angular assets ({}) : {}".format( env, angular_path ) )
@@ -122,20 +151,43 @@ def angularAsserts( path ):
 
 @bluePrint.route( "/api/database", methods=[ 'GET' ] )
 def getDatabaseConfig():
-    dbCfg = current_app.config[ 'DATABASE' ]
-    if dbCfg.get( 'ENGINE', 'sqlite' ) == 'oracle':
-        dbCfg[ 'SCHEMA' ] = dbCfg.get('TNS', '' )
+    """Returns a JSON object with the current database(s)
 
-    return jsonify( engine   = dbCfg.get( 'ENGINE', 'sqlite' ),
-                    database = dbCfg.get( 'SCHEMA', 'database.db' ),
-                    username = dbCfg.get( 'USERNAME', '' ),
-                    password = dbCfg.get( 'PASSWORD', '' ),
-                    hostname = dbCfg.get( 'HOST', '' ),
-                    hostport = dbCfg.get( 'PORT', 5432 ) )
+    @rtype:         string
+    @return:        JSON object with database provider information
+    """
+    result = {}
+    for key, value in current_app.config.get( 'DATABASE', {} ).items():
+        if key == 'TNS':
+            result[ 'database' ] = value
+
+        else:
+            result[ key.lower() ] = value
+
+    # check for extra binds
+    extraBinds = []
+    for bind in current_app.config.get( 'DATABASE_BINDS', [] ):
+        result_bind = {}
+        for key, value in bind.get( 'DATABASE', {} ).items():
+            if key == 'TNS':
+                result_bind[ 'database' ] = value
+
+            else:
+                result_bind[ key.lower() ] = value
+
+            extraBinds.append( result_bind )
+
+    if len( extraBinds ):
+        result[ 'binds' ] = extraBinds
+
+    return jsonify( **result )
 
 
-@bluePrint.route( "/api/version", methods=[ 'GET' ] )
+@bluePrint.route( "/api/webapp/version", methods=[ 'GET' ] )
 def getVersionInfo():
-    return jsonify( version = __version__,
-                    copyright = __copyright__,
-                    author = __author__ )
+    """Returns a JSON object with the current information of the webapp package.
+
+    @rtype:         string
+    @return:        JSON object with webapp information
+    """
+    return jsonify( version = __version__, copyright = __copyright__, author = __author__ )

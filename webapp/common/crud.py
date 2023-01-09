@@ -20,8 +20,18 @@ import webapp.extensions.cache              # noqa
 from webapp.api import cache
 import json
 
+__docformat__ = 'epytext'
+
 
 def getDictFromRequest( request ):
+    """This function retrieved the JOSN data or arguments from the HTTP request.
+
+    @rtype request:         Flask request object
+    @param request:         The reqeust to obtain the data from
+
+    @rtype:                 dictionary
+    @return:                The JSON data or arguments
+    """
     try:
         data = request.json
         if data is None:
@@ -42,35 +52,54 @@ def getDictFromRequest( request ):
     return data
 
 
-class Sorting(BaseModel):
+class Sorting( BaseModel ):
+    """Sorting attributes passed by the frontend to the backend
+
+    """
     column: str
     direction: str
 
 
-class BaseFilter(BaseModel):
+class BaseFilter( BaseModel ):
+    """Filtering attributes passed by the frontend to the backend
+
+    """
     operator: str
     column: str
     value: Union[tuple, list, str]
 
 
 # required for self referencing models
-TableFilter = ForwardRef('TableFilter')
-class TableFilter(BaseModel):
+TableFilter = ForwardRef( 'TableFilter' )
+class TableFilter( BaseModel ):
+    """Filtering  attributes passed by the frontend to the backend for a secondary table
+
+    """
     table: str
     foreignKey: str
-    filters: List[BaseFilter]
-    childFilters: List[TableFilter] = []
+    filters: List[ BaseFilter ]
+    childFilters: List[ TableFilter ] = []
 
 
 TableFilter.update_forward_refs()
 
 
 class RecordLock( object ):
+    """This class takes care of the locking of reconds that are opened in the frontend by a spedific user.
+
+    """
     def __init__( self, table, record_id ):
-        self._table = table
-        self._record_id = record_id
-        self._data = None
-        self._id = None
+        """Contructor to lock a record in a specific table
+
+        @type table:            string
+        @param table:           name of the table where the lock must take place.
+        @rtype record_id:       integer
+        @param record_id:       The primary key id of the record to be locked.
+        """
+        self._table         = table
+        self._record_id     = record_id
+        self._data          = None
+        self._id            = None
         return
 
     @property
@@ -96,6 +125,12 @@ class RecordLock( object ):
 
     @property
     def user( self ):
+        """Get the user name from the current JWT session, the JWT session doesn't provide a username
+        we assign a default user name.
+
+        @rtype:             string
+        @return:            the username
+        """
         try:
             user_info = get_jwt_identity()
             if user_info in ( None, '', 0 ):
@@ -108,7 +143,21 @@ class RecordLock( object ):
 
     @classmethod
     def locked( cls, request, user = None ):
+        """This class method creates a RecordLock object for the current user when the record is not locked.
+        When the record is already locked an exception is raised.
+
+        @raise RecordLockedException:
+
+        @type request:          Flask request object.
+        @param request:         The reqeust to obtain the data from.
+        @type user:             string or None.
+        @param user:            Optional username parameter.
+
+        @rtype:                 RecordLock.
+        @return:                new record lock object.
+        """
         from webapp.backend.locking.model import RecordLocks
+        # TODO: this is an isseu, this will raise the exception
         obj = cls()
         if user is None:
             user = obj.user
@@ -145,8 +194,22 @@ class RecordLock( object ):
 
     @classmethod
     def unlock( cls, request, user = None ):
+        """This class method creates a RecordLock object for the current user when the record is not locked.
+        When the record is already locked an exception is raised.
+
+        @raise RecordLockedException:
+
+        @type request:          Flask request object.
+        @param request:         The reqeust to obtain the data from.
+        @type user:             string or None.
+        @param user:            Optional username parameter.
+
+        @rtype:                 RecordLock.
+        @return:                new record lock object.
+        """
         from webapp.backend.locking.model import RecordLocks
         data = getDictFromRequest( request )
+        # TODO: this is an isseu, this will raise the exception
         obj = cls()
         if user is None:
             user = obj.user
