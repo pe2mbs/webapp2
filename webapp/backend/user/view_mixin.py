@@ -4,11 +4,14 @@ from flask import jsonify, request
 from sqlalchemy.orm.exc import NoResultFound
 from datetime import datetime, timedelta
 import webapp.api as API
+from webapp.common.decorators import no_pre_processing, requires_access
+from webapp.common.util import Right
 from webapp.authenticate.init import initAuthenticator
 from webapp.backend.user.model import User
 from webapp.backend.role.model import Role
-from webapp.backend.access.access import getCurrentAccessProfile
+#from webapp.backend.access.util import getCurrentAccessProfile
 from flask_jwt_extended import jwt_required, create_access_token, get_jwt_identity, decode_token
+from webapp.backend.user.constant import JWT_EXPIRATION_DAYS
 
 
 class UserViewMixin():
@@ -23,10 +26,12 @@ class UserViewMixin():
         return
 
     @jwt_required
+    @no_pre_processing(blueprint="webappUserApi")
     def userLogout( self ):
         return "", 200
 
     @jwt_required
+    @requires_access("webappUserApi", [Right.READ])
     def pageSize( self ):
         self.checkAuthentication()
         username = get_jwt_identity()
@@ -42,6 +47,7 @@ class UserViewMixin():
         return jsonify( pageSize = pageSize, pageSizeOptions = defaultPageSize )
 
     @jwt_required
+    @requires_access("webappUserApi", [Right.READ])
     def restoreProfile( self, username ):
         self.checkAuthentication()
         profileData = { 'locale': 'en_GB',
@@ -72,8 +78,8 @@ class UserViewMixin():
                                 'pageSizeOptions': [ 5, 10, 25, 100 ],
                                 'user': userRecord.U_NAME,
                                 'fullname': "{} {}".format( userRecord.U_FIRST_NAME, userRecord.U_LAST_NAME ),
-                                'role': userRecord.U_ROLE,
-                                'roleString': userRecord.U_R_ID_FK.R_ROLE,
+                                'role': userRecord.U_R_ID,
+                                'roleString': userRecord.U_R_ID_FK.R_NAME,
                                 'theme': data.get( 'theme', 'light-theme' ),
                                 'objects': data.get( 'objects', { } ),
                                 'profilePage': '/user/edit',
@@ -86,6 +92,7 @@ class UserViewMixin():
         return jsonify( profileData )
 
     @jwt_required
+    @requires_access("webappUserApi", [Right.READ, Right.UPDATE])
     def storeProfile( self ):
         self.checkAuthentication()
         profileData = request.json
@@ -108,8 +115,6 @@ class UserViewMixin():
 
         return jsonify( ok = True )
 
-    JWT_KEY = 'verysecretkey'
-
     def encodeToken( self, username, keepsignedin ):
         """
             “exp” (Expiration Time) Claim
@@ -119,25 +124,18 @@ class UserViewMixin():
             “iat” (Issued At) Claim
         """
         if keepsignedin:
-            expiration = timedelta( days = 365 )
+            expiration = timedelta( days = JWT_EXPIRATION_DAYS )
 
         else:
             expiration = timedelta( days = 1 )
 
-        # message = { 'username': username,
-        #             'userrole': userrole,
-        #             'iss': API.app.config.get( 'HOSTNAME', 'http://localhost/' ),
-        #             'iat': datetime.utcnow(),
-        #             'exp': datetime.utcnow() + expiration }
         API.logger.info( "identity = {}".format( username ) )
         return create_access_token( identity = username, expires_delta = expiration )
-        # return jwt.encode( message, self.JWT_KEY, algorithm = 'HS256' )
 
     def decodeToken( self, token ):
         try:
             decoded = decode_token( token )
             API.logger.info( "Decoded TOKEN: {}".format( decoded ) )
-            # decoded = jwt.decode( token, self.JWT_KEY, algorithms = [ "HS256" ] )
             return decoded[ 'username' ], decoded[ 'userrole' ]
 
         except Exception:
@@ -146,8 +144,10 @@ class UserViewMixin():
         except Exception:
             raise
 
+    @no_pre_processing(blueprint="webappUserApi")
     def getUserAuthenticate( self ):
         data = request.json
+        print("#####", request.json, request.data, request.args)
         API.app.logger.info( data )
         if data is None:
             return "Invalid request, missing user data", 500
@@ -163,6 +163,7 @@ class UserViewMixin():
 
         return jsonify( result = result, token = token )
 
+    @no_pre_processing("webappUserApi")
     def getUserSignup( self ):
         """The user sign-up is used for registering an new user into the database,
         and for unlocking a locked account
@@ -210,7 +211,7 @@ class UserViewMixin():
         except NoResultFound:
             # User was not found, so NEW user
             try:
-                roleRecord: Role = API.db.session.query( Role ).filter( Role.R_ROLE.in_( 'Guest', 'Viewer' ) ).one()
+                roleRecord: Role = API.db.session.query( Role ).filter( Role.R_NAME.in_( 'Guest', 'Viewer' ) ).one()
                 # When the Guest role is present in the Role table, the account is set active direcly.
                 # When the Viewer role is present in the role table, the account is set in-active.
                 API.db.session.add( User( U_NAME        = username,
@@ -219,18 +220,18 @@ class UserViewMixin():
                                           U_MIDDLE_NAME = middlename,
                                           U_PASSWD_TRIES = 0,
                                           U_EMAIL       = email,
-                                          U_ROLE        = roleRecord.R_ID,
-                                          U_ACTIVE      = True if roleRecord.R_ROLE == 'Guest' else False,
+                                          U_R_ID        = roleRecord.R_ID,
+                                          U_ACTIVE      = True if roleRecord.R_NAME == 'Guest' else False,
                                           U_LISTITEMS   = 25,
                                           U_LOCALE      = 1 ) )  # Should be the default locale
                 API.db.session.commit()
-                if roleRecord.R_ROLE == 'Viewer':
+                if roleRecord.R_NAME == 'Viewer':
                     msg = f"contact application manager for activation of your account and assining the correct role"
 
                 else:
                     msg = "You can not login"
 
-                return jsonify( result = True, message = f"User was added with role {roleRecord.R_ROLE}, {msg}." )
+                return jsonify( result = True, message = f"User was added with role {roleRecord.R_NAME}, {msg}." )
 
             except NoResultFound:
                 API.app.logger.error( f"In the Role table 'Guest' nor 'Viewer' was found, couldn't add new user {username}" )
@@ -244,13 +245,13 @@ class UserViewMixin():
         return jsonify( result = False, message = "Couldn't add user, contact application manager" )
 
     def beforeUpdate( self, record ):
-        access = getCurrentAccessProfile( 'user' )
-        if not access.hasFullAccess():
+        #access = getCurrentAccessProfile( 'user' )
+        #if not access.hasFullAccess():
             # Only Administrators should have FULL-ACCESS to chnages these attributes
-            if 'U_LAST_LOGIN' in record:
-                del record[ 'U_LAST_LOGIN' ]
+        #    if 'U_LAST_LOGIN' in record:
+        #        del record[ 'U_LAST_LOGIN' ]
 
-            if 'U_PASSWD_TRIES' in record:
-                del record[ 'U_PASSWD_TRIES' ]
+        #    if 'U_PASSWD_TRIES' in record:
+        #        del record[ 'U_PASSWD_TRIES' ]
 
         return record

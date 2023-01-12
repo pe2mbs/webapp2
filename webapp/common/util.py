@@ -24,6 +24,7 @@ from dateutil.parser import parse
 from dateutil.tz import gettz
 import webapp.api as API
 import importlib
+from enum import Enum
 
 to_zone = gettz( 'Europe/Amsterdam' )
 
@@ -37,6 +38,14 @@ def keysToString( keys ):
 
     return "?"
 
+
+
+class Right(Enum):
+    READ   = 1
+    UPDATE = 2
+    CREATE = 3
+    DELETE = 4
+    ALL    = 5
 
 class DbExporterInporters( dict ):
     def __init__( self, d ):

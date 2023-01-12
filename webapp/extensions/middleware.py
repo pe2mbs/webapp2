@@ -21,15 +21,113 @@
 #
 import webapp.api as API
 from webapp.api import app
+from webapp.common.util import Right
+from webapp.backend.access_ref import AccessRef
+from webapp.backend.access.model import Access
+from webapp.backend.user.model import User
 from sqlalchemy.exc import DatabaseError, IntegrityError
 from sqlalchemy.orm import attributes as history_attributes
+from flask_jwt_extended import verify_jwt_in_request, decode_token, get_current_user, get_jwt_identity
 from flask import request
+from typing import List
+from datetime import datetime
+import re
 
 
 # uncomment for handling incoming requests before reaching the endpoint
-#@(API.app).before_request
-#def before_request_func():
-#    print("before_request executing!")
+@app.before_request
+def before_request_func():
+    funcName = request.endpoint #.split(".")[-1]
+    apiName = request.endpoint.split(".")[0]
+    print("### before_request executing: ", request.endpoint)
+    #print(API.required_rights.keys())
+    if funcName in API.no_pre_processing.keys():
+        # ignore this endpoint
+        print("##### no auth")
+        pass
+    else:
+        print("########### jwt identity: ", get_jwt_identity())
+        # 1. verify token itself
+        verify_jwt_in_request()
+
+        # 2. verify that expiration date is not exceeded
+        token = None
+        try:
+            header_name = "Authorization"
+            header_type = "JWT"
+
+            # Verify we have the auth header
+            jwt_header = request.headers.get(header_name, None)
+    
+            # Make sure the header is in a valid format that we are expecting, ie
+            # <HeaderName>: <HeaderType(optional)> <JWT>
+            parts = jwt_header.split()
+            if not header_type:
+                if len(parts) != 1:
+                    msg = "Bad {} header. Expected value '<JWT>'".format(header_name)
+                    raise Exception(msg)
+                encoded_token = parts[0]
+            else:
+                if parts[0] != header_type or len(parts) != 2:
+                    msg = "Bad {} header. Expected value '{} <JWT>'".format(
+                        header_name,
+                        header_type
+                    )
+                    raise Exception(msg)
+                encoded_token = parts[1]
+
+            token = decode_token(encoded_token)
+            print("############", token)
+        except Exception as e:
+            print("Error: ", e)
+        if token is not None and (token["exp"] < datetime.now().timestamp() or "exp" not in token):
+            raise Exception("Token expired!")
+        
+        # 3. check roles of the user
+        if token is not None and "identity" in token:
+            userName = token["identity"]
+            userObject =  API.db.session.query( User ).filter( User.U_NAME == userName).one()
+            print(userObject)
+            role = userObject.U_R_ID_FK
+            print(role.R_NAME)
+            # get access objects for the user's role 
+            accessRights: List[Access] = API.db.session.query( Access ).join( AccessRef, AccessRef.AR_R_ID == userObject.U_R_ID ).all()
+            print(accessRights)
+            shouldGrantAccess = True # TODO: set to False later
+
+            # search for access rights that correspond to the specific function to call
+            accessRights = set([accessRight for accessRight in accessRights for component in \
+                    accessRight.A_COMPONENT.replace(" ", "").split(",") if \
+                    re.search(component.replace(".", "\.").replace("*", ".*"), funcName) ])
+
+
+            # search for the access right that corresponds to the current endpoint (without specific function)
+            if len(accessRights) == 0:
+                accessRights = set([accessRight for accessRight in accessRights for component in \
+                    accessRight.A_COMPONENT.replace(" ", "").split(",") if \
+                    re.search(component.replace(".", "\.").replace("*", ".*"), apiName) ])
+    
+            print(accessRights)
+            for accessRight in accessRights:
+                # component can be te_test_planApi or more specific te_test_planApi.getId
+                # check whether we can access whole component or only subfunction
+                requiredRights = API.required_rights.get( funcName, set([Right.CREATE, Right.DELETE, Right.READ, Right.UPDATE]))
+                if Right.ALL in requiredRights:
+                    requiredRights = set([Right.CREATE, Right.DELETE, Right.READ, Right.UPDATE])
+                givenRights = [Right[field[2:]] for field in Access.rightFields if getattr(accessRight, field) == True]
+                print(requiredRights, givenRights)
+                # check whether the required rights are a subset of the given rights
+                shouldGrantAccess = requiredRights.issubset(givenRights)
+                print(shouldGrantAccess)
+            
+            if not shouldGrantAccess:
+                raise Exception("The user does not have the required role/rights to access the resource!")
+            
+            #for right in requiredRights:
+            #    accessRight = getattr( accessRights, "A_".format(right.name) )
+
+
+
 
 @app.after_request
 def after_request_func(response):

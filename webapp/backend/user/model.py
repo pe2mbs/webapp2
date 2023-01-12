@@ -50,7 +50,7 @@ class User( API.db.Model, CrudModelMixin ):
     U_PROFILE           = API.db.Column( "u_profile", API.db.LONGTEXT, default = "NULL" )
     U_JSON_DATA         = API.db.Column( "u_json_data", API.db.LONGTEXT, default = "NULL" )
 
-    U_R_ID_FK           = API.db.relationship( 'Role', backref = "user_u_role", foreign_keys=[ U_R_ID ], lazy = True )
+    U_R_ID_FK           = API.db.relationship( 'Role', backref = "user_U_R_ID", foreign_keys=[ U_R_ID ], lazy = True )
     #U_LOCALE_FK         = API.db.relationship( 'Locale', backref = "user_u_locale", foreign_keys=[ U_LOCALE ], lazy = True )
     #U_R_ID_FK           = API.db.relationship( 'Role', backref = 'user', lazy = True )
     API.db.UniqueConstraint( 'U_NAME', name='U_NAME_IDX' )

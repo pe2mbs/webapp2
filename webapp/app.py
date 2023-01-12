@@ -201,6 +201,10 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             # register cache
             API.cache.init_app( API.app )
 
+        if API.jwt is not None:
+            # register jwt manager
+            API.jwt.init_app( API.app )
+
         # import tracking, locking and feedback standard modules
         import webapp.backend
         for be_module in webapp.backend.modules:

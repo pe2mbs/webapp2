@@ -5,8 +5,48 @@ import webapp.api as API
 from typing import List, Optional, Any, Union
 from flask import Response, abort
 from pydantic import BaseModel, ValidationError
+from webapp.common.util import Right
 
 
+
+def no_pre_processing(blueprint: str = None):
+    """
+    Decorate a function with the instruction to dont apply flask before_request handler
+
+    Parameters
+    ----------
+    blueprint : str, optional
+        The name of the api blueprint object
+    """
+    def decorator(function):
+        key = blueprint + "." + function.__name__ \
+            if blueprint is not None else function.__name__
+
+        API.no_pre_processing[key] = function
+        return function
+    return decorator
+
+
+def requires_access(blueprint: str = None, rights: list = []):
+    """
+    Decorate a function with the list of access rights it requires
+
+    Parameters
+    ----------
+    blueprint : str, optional
+        The name of the api blueprint object
+    rights : List[Right], optional
+        The list of required access rights
+    """
+    def decorator(function):
+        key = function.__name__
+        if blueprint is not None:
+            key = blueprint + "." + function.__name__
+    
+        API.required_rights[key] = set(rights) if len(rights) > 0 or rights != [Right.ALL] \
+                else set([Right.CREATE, Right.DELETE, Right.READ, Right.UPDATE])
+        return function
+    return decorator
 
 class ErrorDescription (BaseModel):
     code: int

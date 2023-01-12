@@ -48,3 +48,7 @@ recordTracking  = None
 dbtables        = TableManager()
 memorytables    = TableManager()
 tables_dict     = dict()
+# registry of functions that will be ignored from before_request call
+no_pre_processing = dict()
+# registry of functions with their required access rights
+required_rights = dict()

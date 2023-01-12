@@ -9,6 +9,7 @@ from sqlalchemy.exc import IntegrityError   # noqa
 from flask.globals import LocalProxy
 import posixpath
 from webapp.common.decorators import with_valid_input
+from webapp.common.util import Right
 import webapp.api as API
 from flask_jwt_extended import verify_jwt_in_request, get_jwt_identity
 from webapp.common.error import BackendError
@@ -19,6 +20,51 @@ from webapp.common.util import getNestedAttr
 import webapp.extensions.cache              # noqa
 from webapp.api import cache
 import json
+
+
+def render_query(statement, dialect=None):
+    """
+    Generate an SQL expression string with bound parameters rendered inline
+    for the given SQLAlchemy statement.
+    WARNING: This method of escaping is insecure, incomplete, and for debugging
+    purposes only. Executing SQL statements with inline-rendered user values is
+    extremely insecure.
+    Based on http://stackoverflow.com/questions/5631078/sqlalchemy-print-the-actual-query
+    """
+    if isinstance(statement, Query):
+        if dialect is None:
+            dialect = statement.session.bind.dialect
+
+        statement = statement.statement
+
+    elif dialect is None:
+        dialect = statement.bind.dialect
+
+    class LiteralCompiler(dialect.statement_compiler):
+
+        def visit_bindparam(self, bindparam, within_columns_clause=False,
+                            literal_binds=False, **kwargs):
+            return self.render_literal_value(bindparam.value, bindparam.type)
+
+        def render_array_value(self, val, item_type):
+            if isinstance(val, list):
+                return "{%s}" % ",".join([self.render_array_value(x, item_type) for x in val])
+
+            return self.render_literal_value(val, item_type)
+
+        def render_literal_value(self, value, type_):
+            if isinstance(value, int):
+                return str(value)
+
+            elif isinstance(value, (str, date, datetime, timedelta)):
+                return "'%s'" % str(value).replace("'", "''")
+
+            elif isinstance(value, list):
+                return "'{%s}'" % (",".join([self.render_array_value(x, type_.item_type) for x in value]))
+
+            return super(LiteralCompiler, self).render_literal_value(value, type_)
+
+    return LiteralCompiler(dialect, statement).process(statement)
 
 
 def getDictFromRequest( request ):
@@ -225,21 +271,21 @@ class CrudInterface( object ):
 
     def __init__( self, blue_print, use_jwt = False ):
         self._blue_print = blue_print
-        self.registerRoute( 'list/<id>/<value>', self.filteredList, methods = [ 'GET' ] )
-        self.registerRoute( 'pagedlist', self.pagedList, methods = [ 'POST' ] )
-        self.registerRoute( 'list', self.recordList, methods = [ 'GET' ] )
-        self.registerRoute( 'new', self.newRecord, methods = [ 'POST' ] )
-        self.registerRoute( 'primarykey', self.primaryKey, methods = [ 'GET' ] )
-        self.registerRoute( 'get', self.recordGet, methods = [ 'GET' ] )
-        self.registerRoute( 'get/<int:id>', self.recordGetId, methods = [ 'GET' ] )
-        self.registerRoute( 'getvalue', self.recordGetColValue, methods = [ 'POST' ] )
-        self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ] )
-        self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ] )
-        self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ] )
-        self.registerRoute( 'select', self.selectList, methods = [ 'POST' ] )
-        self.registerRoute( 'lock', self.lock, methods = [ 'POST' ] )
-        self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ] )
-        self.registerRoute( 'count', self.recordCount, methods=['GET'])
+        self.registerRoute( 'list/<id>/<value>', self.filteredList, methods = [ 'GET' ], rights=[Right.READ] )
+        self.registerRoute( 'pagedlist', self.pagedList, methods = [ 'POST' ], rights=[Right.READ] )
+        self.registerRoute( 'list', self.recordList, methods = [ 'GET' ], rights=[Right.READ] )
+        self.registerRoute( 'new', self.newRecord, methods = [ 'POST' ], rights=[Right.CREATE] )
+        self.registerRoute( 'primarykey', self.primaryKey, methods = [ 'GET' ], rights=[Right.READ] )
+        self.registerRoute( 'get', self.recordGet, methods = [ 'GET' ], rights=[Right.READ] )
+        self.registerRoute( 'get/<int:id>', self.recordGetId, methods = [ 'GET' ], rights=[Right.READ] )
+        self.registerRoute( 'getvalue', self.recordGetColValue, methods = [ 'POST' ], rights=[Right.READ] )
+        self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ], rights=[Right.READ, Right.DELETE] )
+        self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ], rights=[Right.READ, Right.UPDATE] )
+        self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ], rights=[Right.READ, Right.UPDATE] )
+        self.registerRoute( 'select', self.selectList, methods = [ 'POST' ], rights=[Right.READ] )
+        self.registerRoute( 'lock', self.lock, methods = [ 'POST' ], rights=[Right.READ, Right.UPDATE] )
+        self.registerRoute( 'unlock', self.unlock, methods = [ 'POST' ], rights=[Right.READ, Right.UPDATE] )
+        self.registerRoute( 'count', self.recordCount, methods=['GET'], rights=[Right.READ])
         self.__useJWT   = use_jwt
         return
 
@@ -255,9 +301,13 @@ class CrudInterface( object ):
         self.__useJWT = value
         return
 
-    def registerRoute( self, rule, function, endpoint = None, **options ):
+    def registerRoute( self, rule, function, endpoint = None, rights=[Right.ALL], **options ):
         if not rule.startswith( '/' ):
             rule = posixpath.join( self._uri, rule )
+        
+        key = self._blue_print.name + "." + function.__name__
+        API.required_rights[key] = set(rights) if len(rights) > 0 and Right.ALL not in rights \
+                else set([Right.CREATE, Right.DELETE, Right.READ, Right.UPDATE])
 
         self._blue_print.add_url_rule( rule,
                                        endpoint,
@@ -370,7 +420,6 @@ class CrudInterface( object ):
     def pagedList( self, body: PagedListBodyInput ):
         if body.cacheDeactivator != None:
             self.deleteCache()
-        self.checkAuthentication()
         t1 = time.time()
         if self.__useJWT:
             user_info = get_jwt_identity()
@@ -433,7 +482,6 @@ class CrudInterface( object ):
 
     def filteredList( self, id, value ):
         t1 = time.time()
-        self.checkAuthentication()
         filter = { id: value }
         API.app.logger.debug( 'GET: {}/list/{}/{} by {}'.format( self._uri, id, value, self._lock_cls().user ) )
         recordList = API.db.session.query( self._model_cls ).filter_by( **filter ).all()
@@ -446,7 +494,6 @@ class CrudInterface( object ):
         return result
 
     def recordList( self ):
-        self.checkAuthentication()
         API.app.logger.debug( 'GET: {}/list by {}'.format( self._uri, self._lock_cls().user ) )
         recordList = API.db.session.query( self._model_cls ).all()
         result = self._schema_list_cls.jsonify( recordList )
@@ -454,14 +501,12 @@ class CrudInterface( object ):
         return result
 
     def primaryKey( self, **kwargs ):
-        self.checkAuthentication()
         # get primary key of class
         primary_key = self._model_cls.__field_list__[ 0 ]
         result = jsonify( { "primaryKey": primary_key } )
         return result
 
     def newRecord( self, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'POST: {}/new {} by {}'.format( self._uri, repr( locker.data), locker.user ) )
         locker.removeId()
@@ -481,7 +526,6 @@ class CrudInterface( object ):
         return result
 
     def recordGet( self, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         #record = self._model_cls.query.get( locker.id )
@@ -500,9 +544,7 @@ class CrudInterface( object ):
         return result
 
 
-
     def recordGetId( self, id, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'GET: {}/get/{} by {}'.format( self._uri, locker.id, locker.user ) )
         try:
@@ -529,7 +571,6 @@ class CrudInterface( object ):
         return result
 
     def recordDelete( self, id, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
         record = self._model_cls.query.get( locker.id )
@@ -568,7 +609,6 @@ class CrudInterface( object ):
         return response
 
     def updateRecord( self, data: dict, record: any, user = None ):
-        self.checkAuthentication()
         if isinstance( record, int ):
             record = API.db.session.query( self._model_cls ).get( record )
 
@@ -616,7 +656,6 @@ class CrudInterface( object ):
         return record
 
     def recordPut( self, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
 
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
@@ -630,7 +669,6 @@ class CrudInterface( object ):
             return result
 
     def recordPatch( self, **kwargs ):
-        self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
 
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
@@ -669,7 +707,6 @@ class CrudInterface( object ):
                 name_field = fld
                 break
 
-        self.checkAuthentication()
         # data = getDictFromRequest( request )
         API.app.logger.info( 'GET {}/select: {} by {}'.format( self._uri, str(body) , self._lock_cls().user ) )
 
@@ -732,14 +769,12 @@ class CrudInterface( object ):
 
     def lock( self ):
         if self._lock:
-            self.checkAuthentication()
             return jsonify( self._lock_cls.lock( request ) )
 
         return ""
 
     def unlock( self ):
         if self._lock:
-            self.checkAuthentication()
             return jsonify( self._lock_cls.unlock( request ) )
 
         return ""

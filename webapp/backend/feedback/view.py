@@ -23,6 +23,7 @@ from flask import Blueprint, request, jsonify, current_app
 import webapp.api as API
 from webapp.backend.feedback.model import Feedback
 from webapp.common import createMenuHash
+from webapp.common.decorators import no_pre_processing
 
 
 feedbackApi = Blueprint( 'feedbackApi', __name__ )
@@ -44,6 +45,7 @@ def registerApi( *args ):
 
 
 @feedbackApi.route( '/api/feedback', methods = [ 'PUT' ] )
+@no_pre_processing('feedbackApi')
 def feedback():
     data    = request.json
     if data is None:

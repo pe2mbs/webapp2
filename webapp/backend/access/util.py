@@ -1,11 +1,9 @@
-import webapp.api as API
+#import webapp.api as API
 from sqlalchemy import or_
 from sqlalchemy.orm.exc import NoResultFound
-from webapp.backend.user.model import User
-from webapp.backend.role.model import Role
-from webapp.backend.access.model import Access
 
 
+"""
 class AccessProfile( object ):
     def __init__( self, name, user, c = False, r = False, u = False, d = False ):
         self._name      = name
@@ -39,7 +37,7 @@ def getCurrentAccessProfile( table_name: str ) -> AccessProfile:
     else:
         try:
             userRecord: User = API.db.session.query( User ).filter( User.U_NAME == current_user ).one()
-            roleRecord: Role = API.db.session.query( Role ).filter( Role.R_ID == userRecord.U_ROLE ).one()
+            roleRecord: Role = API.db.session.query( Role ).filter( Role.R_ID == userRecord.U_R_ID ).one()
             try:
                 # Access based on ACCESS
                 accessRecord: Access = API.db.session.query( Access ).filter( or_( Access.A_U_ID == userRecord.U_ID,
@@ -67,3 +65,4 @@ def getCurrentAccessProfile( table_name: str ) -> AccessProfile:
     # No access to tablw
     return AccessProfile( table_name, current_user, False, False, False, False )
 
+"""

@@ -21,6 +21,7 @@
 from webapp.backend.user.schema import *
 from webapp.backend.user.model import *
 from webapp.backend.user.view import *
+from webapp.backend.user.view_mixin import *
 try:
     from webapp.backend.user.constants import *
 

@@ -9,6 +9,8 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.exc import IntegrityError
 from webapp.backend.tracking import constant
 from webapp.backend.tracking.model import Tracking
+from webapp.common.decorators import no_pre_processing, requires_access
+from webapp.common.util import Right
 
 
 class TrackingViewMixin( object ):
@@ -19,6 +21,7 @@ class TrackingViewMixin( object ):
         self.registerRoute( 'rollback', self.rollbackRecord, methods = [ 'POST' ] )
         return
 
+    @requires_access("trackingApi", [Right.ALL])
     def rollbackRecord( self ):
         self.checkAuthentication()
         if API.use_jwt:
@@ -92,6 +95,7 @@ class TrackingViewMixin( object ):
 
         return jsonify( ok = True )
 
+    @requires_access("trackingApi", [Right.READ])
     def retrieveRecords( self, **kwargs ):
         self.checkAuthentication()
         if API.use_jwt:

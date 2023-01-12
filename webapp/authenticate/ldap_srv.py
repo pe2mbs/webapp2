@@ -10,14 +10,18 @@ try:
     class LdapAuthenticate( Authenticate ):
         def __init__( self, method = 'LDAP' ):
             super( LdapAuthenticate, self ).__init__( method )
-            self.__config = API.app.config( 'LDAP_AUTHENTICATOR', { } )
+            self.__config = API.app.config.get( 'LDAP_AUTHENTICATOR', {} )
             self.__userdata = None
             return
 
         def Authenticate( self, username, password ) -> bool:
+            ldap.set_option( ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER )
             connect = ldap.initialize( self.__config.get( 'hostname', 'ldaps://localhost' ) )
+            connect.set_option( ldap.OPT_DEBUG_LEVEL, 255 )
             self.__userdata = None
             try:
+                connect.protocol_version = ldap.VERSION3
+                connect.set_option(ldap.OPT_REFERRALS, 0)
                 # if authentication successful, get the full user data
                 base_dn = self.__config.get( 'BASE-DN', self.__config.get( 'BASE_DN', None ) )
                 if base_dn is None:
@@ -27,11 +31,11 @@ try:
                 if f_user_dn is None:
                     raise InvalidConfiguration( 'USER-DN is not present in configuration (LDAP_AUTHENTICATOR)')
 
-                if not f_user_dn.startswith( 'uid={},' ):
-                    raise InvalidConfiguration( 'USER-DN invalid must start with "uid={}," in configuration (LDAP_AUTHENTICATOR)')
+                if not f_user_dn.startswith( 'CN={},' ):
+                    raise InvalidConfiguration( 'USER-DN invalid must start with "CN={}," in configuration (LDAP_AUTHENTICATOR)')
 
                 connect.bind_s( f_user_dn.format( username ), password )
-                self.__userdata = connect.search_s( base_dn, ldap.SCOPE_SUBTREE, f"uid={username}" )
+                self.__userdata = connect.search_s( base_dn, ldap.SCOPE_SUBTREE, f"CN={username}" )
                 # return all user data results
                 connect.unbind_s()
                 return True
