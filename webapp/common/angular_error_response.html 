@@ -1,0 +1,22 @@
+<html>
+    <head>
+        <title>Exception: Angular application is missing // Werkzeug Debugger</title>
+        <link rel="stylesheet" href="?__debugger__=yes&amp;cmd=resource&amp;f=style.css" type="text/css">
+        <link rel="shortcut icon" href="?__debugger__=yes&amp;cmd=resource&amp;f=console.png">
+        <script src="?__debugger__=yes&amp;cmd=resource&amp;f=jquery.js"></script>
+        <script src="?__debugger__=yes&amp;cmd=resource&amp;f=debugger.js"></script>
+    </head>
+    <body style="background-color: #fff">
+        <div class="debugger">
+            <h1>webapp Exception</h1>
+            <div class="detail">
+                <p class="errormsg">Exception: ${ message }</p>
+            </div>
+            <h2 class="traceback">${ reason }</h2>
+
+            <div class="explanation">
+                ${ explanation }
+            </div>
+        </div>
+    </body>
+</html>
