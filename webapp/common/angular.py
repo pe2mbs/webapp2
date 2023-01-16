@@ -114,7 +114,7 @@ def index():
         # Log the error at this point
         current_app.logger.exception( exc )
         # re-raise the exception
-        raise from None
+        raise exc
 
 
 @bluePrint.route( r"/<regex('\w\.(js|css|map|ico|jpg|eps|png|woff|woff2|svg|eot|ttf)'):path>" )

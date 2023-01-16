@@ -160,12 +160,12 @@ class WebappMenu( object ):
 
             return False
 
-        if not menu.get( 'menu' ) and not menu.get( 'route' ):
-            # One of these is a mandatory item
-            if exception:
-                raise InvalidMenuObject( "Missing 'route' or 'menu'" )
-
-            return False
+        # TODO Marc: uncomment and check whether it works
+        #if not menu.get( 'menu' ) and not menu.get( 'route' ):
+        #    # One of these is a mandatory item
+        #    if exception:
+        #        raise InvalidMenuObject( "Missing 'route' or 'menu'" )
+        #    return False
 
         elif menu.get( 'menu' ) and menu.get( 'route' ):
             # 'menu' and 'route' cannot be both precent

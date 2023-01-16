@@ -22,7 +22,11 @@ import webapp.api as API
 import click
 from flask import current_app
 import werkzeug.serving
-from werkzeug.middleware.proxy_fix import ProxyFix
+try:
+    # does not work on werkzeug 0.14.1
+    from werkzeug.middleware.proxy_fix import ProxyFix
+except Exception as exc:
+    pass
 from flask.cli import pass_script_info, CertParamType, _validate_key, get_debug_flag, show_server_banner
 from threading import Thread, Lock
 

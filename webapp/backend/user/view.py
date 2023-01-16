@@ -36,6 +36,8 @@ def registerApi( *args ):
     API.app.register_blueprint( webappUserApi )
     # Register at 'Administration' -> 'Users, Roles and Access'
     # Including the full 'Administration' and 'Users, Roles and Access' menu items
+    # TODO Marc: uncomment and add 'menu' key
+    """
     API.menu.register( {
         'caption': 'Administration',    # Where ever the Administration menu was added, when it was not there we add it to the end
         'id':       createMenuHash( 'Administration' ),
@@ -62,6 +64,7 @@ def registerApi( *args ):
             }
         ]
     } )
+    """
     return
 
 

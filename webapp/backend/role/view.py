@@ -34,6 +34,8 @@ def registerApi( *args ):
     API.app.logger.debug( 'Register Role routes' )
     API.app.register_blueprint( webappRoleApi )
     # Register at 'Administration' -> 'Users, Roles and Access'
+    # TODO Marc: uncomment and add 'menu' key
+    """
     API.menu.register( {
         'caption':  'Roles',
         'id':       createMenuHash( 'Roles' ),
@@ -42,6 +44,7 @@ def registerApi( *args ):
         'before':   'Access',
         'route':    '/role'
     }, 'Administration', 'Users, Roles and Access' )
+    """
     return
 
 

@@ -26,3 +26,4 @@ from webapp.common.dbmem import DbBaseMemory
 from webapp.common.crudmixin import CrudModelMixin
 from webapp.common.tablemngt import TableManager
 from webapp.common.menu import WebappMenu, createMenuHash
+from webapp.common.plugins import loadPlugins
