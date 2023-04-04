@@ -193,7 +193,7 @@ class RecordLock( object ):
 
         if user is None:
             user = 'single.user'
-        
+
         API.logger.info( "request: {}".format( request ) )
         if isinstance( request, dict ):
             obj._data = request
@@ -262,8 +262,9 @@ class CrudInterface( object ):
     _relations = []
     _delayed = False
 
-    def __init__( self, blue_print, use_jwt = False ):
+    def __init__( self, blue_print, use_jwt = False, session_function = None ):
         self._blue_print = blue_print
+        self._session_function  = session_function
         self.registerRoute( 'list/<id>/<value>', self.filteredList, methods = [ 'GET' ] )
         self.registerRoute( 'pagedlist', self.pagedList, methods = [ 'POST' ] )
         self.registerRoute( 'list', self.recordList, methods = [ 'GET' ] )
@@ -281,9 +282,15 @@ class CrudInterface( object ):
         self.registerRoute( 'count', self.recordCount, methods=['GET'])
         self.__useJWT   = use_jwt
         return
-    
+
     def __repr__( self ):
         return str(self._model_cls)
+
+    def getDbSession( self, options = None ):
+        if self._session_function:
+            return self._session_function( options )
+
+        return API.db.session
 
     @property
     def useJWT( self ):
@@ -384,6 +391,7 @@ class CrudInterface( object ):
         # process the filter for child records
         if len(childFilters) > 0:
             tables_dict = {table.__tablename__: table for table in API.db.Model.__subclasses__()}
+
         for childFilter in childFilters:
             try:
                 # join with child table based on foreign key
@@ -403,18 +411,20 @@ class CrudInterface( object ):
         pageSize: int = 1
         sorting: Optional[Sorting]
         cacheDeactivator: Optional[int]
+        db_option: Optional[ dict ]
 
     @with_valid_input(body=PagedListBodyInput)
     @cache.memoize(timeout=150)
     def pagedList( self, body: PagedListBodyInput ):
         if body.cacheDeactivator != None:
             self.deleteCache()
+
         self.checkAuthentication()
         t1 = time.time()
         if self.__useJWT:
             user_info = get_jwt_identity()
             API.app.logger.debug( 'POST: {}/pagedlist by {}'.format( self._uri, user_info ) )
-    
+
         filter = body.filters
         # parse filters
         for item in filter:
@@ -422,7 +432,7 @@ class CrudInterface( object ):
                 item = BaseFilter.parse_obj(item)
 
         API.app.logger.debug( "Filter {}".format( filter ) )
-        query = self.makeFilter( API.db.session.query( self._model_cls ), filter )
+        query = self.makeFilter( self.getDbSession( body.db_option ).query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
@@ -438,12 +448,15 @@ class CrudInterface( object ):
                 # make join if not already done through filtering
                 if shouldJoin:
                     query = query.join(relationship)
+
                 relatedClass = relationship.mapper.class_
+
             if column is not None:
                 # in the following, it is explicitly assumed that the query contains already a join
                 # with the target model class since the filter field and sort field must correlate
                 if sorting.direction == 'asc':
                     query = query.order_by( getattr( relatedClass, attributes[-1] ) )
+
                 else:
                     query = query.order_by( getattr( relatedClass, attributes[-1] ).desc() )
 
@@ -474,7 +487,7 @@ class CrudInterface( object ):
         self.checkAuthentication()
         filter = { id: value }
         API.app.logger.debug( 'GET: {}/list/{}/{} by {}'.format( self._uri, id, value, self._lock_cls().user ) )
-        recordList = API.db.session.query( self._model_cls ).filter_by( **filter ).all()
+        recordList = self.getDbSession().query( self._model_cls ).filter_by( **filter ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'filteredList => count: {}'.format( len( recordList ) ) )
         if self._delayed and t1 + 1 > time.time():
@@ -486,7 +499,7 @@ class CrudInterface( object ):
     def recordList( self ):
         self.checkAuthentication()
         API.app.logger.debug( 'GET: {}/list by {}'.format( self._uri, self._lock_cls().user ) )
-        recordList = API.db.session.query( self._model_cls ).all()
+        recordList = self.getDbSession().query( self._model_cls ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'recordList => count: {}'.format( len( recordList ) ) )
         return result
@@ -504,7 +517,7 @@ class CrudInterface( object ):
         API.app.logger.debug( 'POST: {}/new {} by {}'.format( self._uri, repr( locker.data), locker.user ) )
         locker.removeId()
         record = self.updateRecord( locker.data, self._model_cls(), locker.user )
-        API.db.session.add( record )
+        self.getDbSession().add( record )
         #API.db.session.commit()
         result = self._schema_cls.jsonify( record )
         result.headers["USER"] = locker.user
@@ -524,12 +537,13 @@ class CrudInterface( object ):
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         #record = self._model_cls.query.get( locker.id )
         try:
-            query = API.db.session.query( self._model_cls )
+            query = self.getDbSession().query( self._model_cls )
             for column, value in locker.data.items():
                 query = query.filter(getattr(self._model_cls, column) == value)
 
             record = query.one()
             result = self._schema_cls.jsonify( record )
+
         except Exception as exc:
             raise BackendError(exc, problem="Requested {} record does not exist in the database".format( self._model_cls.__name__ ),
             solution="Ensure that you request an existing item")
@@ -585,7 +599,7 @@ class CrudInterface( object ):
         #                           locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
-        API.db.session.delete( record )
+        self.getDbSession().delete( record )
         #API.app.logger.debug( 'Commit delete' )
         message = ''
         result = True
@@ -606,7 +620,7 @@ class CrudInterface( object ):
     def updateRecord( self, data: dict, record: any, user = None ):
         self.checkAuthentication()
         if isinstance( record, int ):
-            record = API.db.session.query( self._model_cls ).get( record )
+            record = self.getDbSession().query( self._model_cls ).get( record )
 
         elif isinstance( record, self._model_cls ):
             pass
@@ -658,7 +672,7 @@ class CrudInterface( object ):
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
 
-        with API.db.session.no_autoflush:
+        with self.getDbSession().no_autoflush:
             result = self._schema_cls.jsonify( record )
             result.headers["USER"] = locker.user
             API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
@@ -673,9 +687,9 @@ class CrudInterface( object ):
         record = self.updateRecord( locker.data, locker.id, locker.user )
 
         # the jsonification changes the dirty set of sqlalchemy
-        with API.db.session.no_autoflush:
+        with self.getDbSession().no_autoflush:
             result = self._schema_cls.jsonify( record )
-            result.headers["USER"] = locker.user
+            result.headers[ "USER" ] = locker.user
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
             self.deleteCache()
             return result
@@ -687,10 +701,9 @@ class CrudInterface( object ):
         initial: Optional[Any]
         final: Optional[Any]
         childFilters: Optional[List[TableFilter]]
-        pageIndex: Optional[int] # optional for paged version
-        pageSize: Optional[int] # optional for paged version
-        firstItem: Optional[int] # optional list item to be at the top
-
+        pageIndex: Optional[ int ] # optional for paged version
+        pageSize: Optional[ int ] # optional for paged version
+        firstItem: Optional[ int ] # optional list item to be at the top
         def __repr__(self):
             return f"<SelectListBodyInput {self.label} => {self.value} filter {self.filter} \
             | {self.initial}, {self.final} child-filters {self.childFilters} \
@@ -728,7 +741,7 @@ class CrudInterface( object ):
                 childFilters.append(TableFilter.parse_obj(childFilter))
 
         # apply specified filter on the query
-        query = self.makeFilter( API.db.session.query( self._model_cls ), filter, childFilters=childFilters )
+        query = self.makeFilter(self.getDbSession().query( self._model_cls ), filter, childFilters=childFilters )
 
         pivotItem = None
         if body.firstItem not in (None, 0) and body.pageIndex == 0:
@@ -756,14 +769,14 @@ class CrudInterface( object ):
         if body.pageIndex is not None and body.pageSize is not None:
             return jsonify(  { "itemList": result, "totalItems": totalItems } )
         return jsonify( result )
-    
+
     def deleteCache( self ):
         cache.delete_memoized(self.recordGetColValue)
         cache.delete_memoized(self.pagedList)
         cache.delete_memoized(self.selectList)
 
     def recordCount( self ):
-        return jsonify( recordCount = API.db.session.query( self._model_cls ).count() )
+        return jsonify( recordCount = self.getDbSession().query( self._model_cls ).count() )
 
     def lock( self ):
         if self._lock:
