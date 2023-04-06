@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import traceback
 from sqlalchemy import and_, not_
 from sqlalchemy.orm.exc import NoResultFound
-from sqlalchemy.exc import IntegrityError
+# from sqlalchemy.exc import IntegrityError
 from flask.globals import LocalProxy
 import posixpath
 from webapp2.common.decorators import with_valid_input
@@ -15,8 +15,9 @@ from webapp2.common.error import BackendError
 from webapp2.common.exceptions import *
 from datetime import date, timedelta, datetime
 from sqlalchemy.orm import Query
-from webapp2.common.util import getNestedAttr
+# from webapp2.common.util import getNestedAttr
 from webapp2.api import cache
+from deprecated import deprecated
 import json
 
 
@@ -287,9 +288,14 @@ class CrudInterface( object ):
         return str(self._model_cls)
 
     def getDbSession( self, options = None ):
+        """This function is to switch database session to a dynamic created session.
+
+        """
         if self._session_function:
+            # Obtain a special database session.
             return self._session_function( options )
 
+        # Return the normal session
         return API.db.session
 
     @property
@@ -411,7 +417,7 @@ class CrudInterface( object ):
         pageSize: int = 1
         sorting: Optional[Sorting]
         cacheDeactivator: Optional[int]
-        db_option: Optional[ dict ]
+        options: Optional[ dict ]
 
     @with_valid_input(body=PagedListBodyInput)
     @cache.memoize(timeout=150)
@@ -432,7 +438,7 @@ class CrudInterface( object ):
                 item = BaseFilter.parse_obj(item)
 
         API.app.logger.debug( "Filter {}".format( filter ) )
-        query = self.makeFilter( self.getDbSession( body.db_option ).query( self._model_cls ), filter )
+        query = self.makeFilter( self.getDbSession( body.options ).query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
@@ -482,6 +488,7 @@ class CrudInterface( object ):
         API.app.logger.debug( 'filteredList => {}'.format( result ) )
         return result
 
+    @deprecated('This should not be used anymore')
     def filteredList( self, id, value ):
         t1 = time.time()
         self.checkAuthentication()
@@ -496,6 +503,7 @@ class CrudInterface( object ):
 
         return result
 
+    @deprecated('This should not be used anymore')
     def recordList( self ):
         self.checkAuthentication()
         API.app.logger.debug( 'GET: {}/list by {}'.format( self._uri, self._lock_cls().user ) )

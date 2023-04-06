@@ -246,19 +246,26 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         API.app.static_folder   = os.path.join( root_path, API.app.config[ 'ANGULAR_PATH' ] ) + "/"
         API.app.url_map.strict_slashes = False
         if module is None and 'API_MODULE' in API.app.config:
-            API.app.logger.info("Loading module : {}".format( API.app.config[ 'API_MODULE' ] ) )
-            # import testrun.main to import registerApi,registerExtensions,registerShellContext,registerCommands,registerErrorHandler
-            module = importlib.import_module( API.app.config[ 'API_MODULE' ] + ".main" )
-
-        API.app.logger.info("Application module : {}".format( module ) )
-        registerAngular()
-        if hasattr( module, 'registerApi' ):
-            sig = signature( module.registerApi )
-            if len( sig.parameters ) == 2:
-                module.registerApi( API.app, API.db )
+            if ',' in API.app.config[ 'API_MODULE' ]:
+                # Multiple modules
+                modules = [ m.strip() for m in API.app.config[ 'API_MODULE' ].split(',') ]
 
             else:
-                module.registerApi()
+                # One root module
+                modules = [ API.app.config[ 'API_MODULE' ].strip() ]
+
+            for mod in modules:
+                API.app.logger.info( f"Loading module : {mod}" )
+                module = importlib.import_module( f"{mod}.main" )
+                API.app.logger.info("Application module : {}".format( module ) )
+                registerAngular()
+                if hasattr( module, 'registerApi' ):
+                    sig = signature( module.registerApi )
+                    if len( sig.parameters ) == 2:
+                        module.registerApi( API.app, API.db )
+
+                    else:
+                        module.registerApi()
 
         # Check for Flask_MonitoringDashboard
         if dashboard is None:
