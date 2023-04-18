@@ -117,6 +117,7 @@ def handle_exception( e: Exception ):
         #response: Response = make_response( e.description, e.code )
         description = e.description
         error_code = e.code
+
     print( "Error handler: {} :: {}".format( type( e ), e ) )
     if isinstance( e, werkzeug.exceptions.HTTPException ):
         #response: Response = make_response( e.description, e.code )
@@ -156,7 +157,7 @@ def handle_exception( e: Exception ):
         # replace the body with JSON
         response_data = {
             "code":         response.status_code,
-            "name":         str( type( e ) ),
+            "name":         e.__class__.__name__,
             "message":      description,
             "codeString":   werkzeug.exceptions.HTTP_STATUS_CODES[ response.status_code ],
             "url":          request.url,
