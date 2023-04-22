@@ -117,6 +117,7 @@ def handle_exception( e: Exception ):
         #response: Response = make_response( e.description, e.code )
         description = e.description
         error_code = e.code
+        app.logger.error( f"{error_code} - {description} {request.path}" )
 
     print( "Error handler: {} :: {}".format( type( e ), e ) )
     if isinstance( e, werkzeug.exceptions.HTTPException ):
