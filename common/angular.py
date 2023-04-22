@@ -155,16 +155,25 @@ def feedback():
 
 @bluePrint.route( "/api/database", methods=[ 'GET' ] )
 def getDatabaseConfig():
+    from collections import namedtuple
     dbCfg = current_app.config[ 'DATABASE' ]
     if dbCfg.get( 'ENGINE', 'sqlite' ) == 'oracle':
         dbCfg[ 'SCHEMA' ] = dbCfg.get('TNS', '' )
 
+    schema = dbCfg.get( 'SCHEMA', 'database.db' )
+    connection = db.session.connection()
+    result = connection.execute( f"select version_num from {schema}.alembic_version" )
+    Record = namedtuple('Record', result.keys())
+    records = [Record(*r) for r in result.fetchall()]
+    alembic_version = [ r.version_num for r in records ]
+    print( alembic_version )
     return jsonify( engine   = dbCfg.get( 'ENGINE', 'sqlite' ),
-                    database = dbCfg.get( 'SCHEMA', 'database.db' ),
+                    database = schema,
                     username = dbCfg.get( 'USERNAME', '' ),
                     password = dbCfg.get( 'PASSWORD', '' ),
                     hostname = dbCfg.get( 'HOST', '' ),
-                    hostport = dbCfg.get( 'PORT', 5432 ) )
+                    hostport = dbCfg.get( 'PORT', 5432 ),
+                    version = alembic_version )
 
 
 @bluePrint.route( "/api/version", methods=[ 'GET' ] )
