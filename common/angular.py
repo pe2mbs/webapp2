@@ -166,14 +166,14 @@ def getDatabaseConfig():
     Record = namedtuple('Record', result.keys())
     records = [Record(*r) for r in result.fetchall()]
     alembic_version = [ r.version_num for r in records ]
-    print( alembic_version )
+    API.logger.info( alembic_version[0] )
     return jsonify( engine   = dbCfg.get( 'ENGINE', 'sqlite' ),
                     database = schema,
                     username = dbCfg.get( 'USERNAME', '' ),
                     password = dbCfg.get( 'PASSWORD', '' ),
                     hostname = dbCfg.get( 'HOST', '' ),
                     hostport = dbCfg.get( 'PORT', 5432 ),
-                    version = alembic_version )
+                    version = alembic_version[0] )
 
 
 @bluePrint.route( "/api/version", methods=[ 'GET' ] )
