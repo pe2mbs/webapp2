@@ -117,16 +117,13 @@ EXPORT_HELP = """Export the database to a {} file.
 @dba.command( 'export', short_help = 'Export the database to a {} file.'.format( dbExporters.keysToString() ),
               help = EXPORT_HELP )
 @click.option( '--fmt',
-               nargs = 1,
                default = "sql",
                help = "Can be one of the following: {}.".format( dbExporters.keysToString() ),
                type = click.Choice( dbExporters.keys(), case_sensitive = False ) )
 @click.option( '--table',
-               nargs = 1,
                default = None,
                help = "The table name from the database." )
 @click.option( '--clear',
-               nargs = 0,
                default = False,
                help = "Clears the table before inserting (only for {}.)".format( dbExporters.hasClear2String() ) )
 @click.argument( 'filename' )

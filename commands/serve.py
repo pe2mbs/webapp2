@@ -6,10 +6,8 @@ from flask.cli import ( pass_script_info,
                         CertParamType,
                         _validate_key,
                         get_debug_flag,
-                        show_server_banner,
-                        get_env,
-                        DispatchingApp )
-
+                        show_server_banner )
+from webapp2.common.dispapp import DispatchingApp, get_env
 
 @click.group( cls = AppGroup )
 def serve():
@@ -69,7 +67,7 @@ def dev( info, host, port, reload, debugger, eager_loading,
     if eager_loading is None:
         eager_loading = not reload
 
-    show_server_banner( get_env(), debug, info.app_import_path, eager_loading )
+    show_server_banner( get_env(), debug )
     app = DispatchingApp( info.load_app, use_eager_loading = eager_loading )
     applic      = info.load_app()
     if host is None:
