@@ -437,8 +437,14 @@ class CrudInterface( object ):
             if isinstance(item, dict):
                 item = BaseFilter.parse_obj(item)
 
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+        except:
+            pass
+
         API.app.logger.debug( "Filter {}".format( filter ) )
-        query = self.makeFilter( self.getDbSession( body.options ).query( self._model_cls ), filter )
+        query = self.makeFilter( self.getDbSession( options ).query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
