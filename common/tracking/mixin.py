@@ -1,5 +1,6 @@
 import traceback
 from flask import request, jsonify
+from sqlalchemy import text
 import json
 import dateutil.parser
 from flask_jwt_extended import get_jwt_identity
@@ -33,6 +34,8 @@ class TrackingViewMixin( object ):
         try:
             record: Tracking = query.one()
             if record.T_ACTION == constant.C_T_ACTION_CASCADE_DELETE:
+                # We need to disable the dabase integrity
+                API.db.session.execute( text( "SET FOREIGN_KEY_CHECKS=0" ) )
                 tables = json.loads( record.T_TABLE )
                 for i, recordDict in enumerate(json.loads( record.T_CONTENTS )):
                     restoreRecord = API.dbtables.instanciate( tables[i] )
@@ -42,6 +45,8 @@ class TrackingViewMixin( object ):
                     API.db.session.add( restoreRecord )
                 API.db.session.delete( record )
                 API.db.session.commit()
+                # We need to ensable the dabase integrity AGAIN !!!!!
+                API.db.session.execute( text( "SET FOREIGN_KEY_CHECKS=1" ) )
 
             if record.T_ACTION == constant.C_T_ACTION_DELETE:
                 restoreRecord = API.dbtables.instanciate( record.T_TABLE )
