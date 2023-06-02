@@ -195,7 +195,7 @@ class RecordLock( object ):
         if user is None:
             user = 'single.user'
 
-        API.logger.info( "request: {}".format( request ) )
+        API.logger.debug( "request: {}".format( request ) )
         if isinstance( request, dict ):
             obj._data = request
 
