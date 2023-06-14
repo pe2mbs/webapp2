@@ -215,7 +215,7 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             API.app.logger.info( "{}".format( yaml.dump( API.app.config.struct, default_flow_style = False ) ) )
         API.logger = API.app.logger
         sys.stderr = LoggerWriter( API.app.logger.warning )
-
+        API.defaultCacheTime = API.app.config.get( 'CACHE_TIMEOUT', 150 )
         # register cache
         API.cache.init_app( API.app )
 
