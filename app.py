@@ -293,21 +293,3 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
     API.tables_dict = { table.__tablename__: table for table in API.db.Model.__subclasses__() }
 
     return API.app
-
-
-def SetApiReferences( api ):
-    """This is to copy the web application module, logger and database engine references to
-    a custom api module where the main application can refer to.
-
-    :param api:
-    :return:
-    """
-    api.app     = API.app
-    api.db      = API.app.db
-    api.logger  = API.app.logger
-
-    # TODO: This is at the wrong place, but now now it works
-    API.C_TESTRUN_OBJECT = "testrunObject"
-    return
-
-
