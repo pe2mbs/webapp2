@@ -32,7 +32,7 @@ def render_query(statement, dialect=None):
     """
     if isinstance(statement, Query):
         if dialect is None:
-            dialect = statement.session.bind.dialect
+            dialect = statement.session.get_bind().dialect
 
         statement = statement.statement
 

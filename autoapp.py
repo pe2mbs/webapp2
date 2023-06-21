@@ -97,7 +97,7 @@ def getHostByAddress( host_address ):
 
     return ", ".join( result )
 
-
+from werkzeug.http import HTTP_STATUS_CODES
 @app.errorhandler( Exception )
 def handle_exception( e: Exception ):
     """Return JSON instead of HTML for HTTP errors."""
@@ -160,7 +160,7 @@ def handle_exception( e: Exception ):
             "code":         response.status_code,
             "name":         e.__class__.__name__,
             "message":      description,
-            "codeString":   werkzeug.exceptions.HTTP_STATUS_CODES[ response.status_code ],
+            "codeString":   HTTP_STATUS_CODES[ response.status_code ],
             "url":          request.url,
             "problem":      problem,
             "solution":     solution,
