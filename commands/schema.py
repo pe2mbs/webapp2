@@ -1,7 +1,7 @@
 import webapp2.api as API
 from sqlalchemy.exc import IntegrityError, InternalError, ProgrammingError
 from datetime import datetime, time, date
-from sqlalchemy.exc import ProgrammingError
+from sqlalchemy import text
 import pymysql.err
 
 
@@ -15,10 +15,10 @@ def getCurrentSchema():
 
 def listSchemas( schema = None, all = False, exclude = None, remote = None ):
     if remote is None:
-        data = API.db.session.connection().execute( "SHOW DATABASES" )
+        data = API.db.session.connection().execute( text( "SHOW DATABASES" ) )
 
     else:
-        data = remote.session.connection().execute( "SHOW DATABASES" )
+        data = remote.session.connection().execute( text( "SHOW DATABASES" ) )
 
     if schema is None:
         current_schema = getCurrentSchema()
@@ -48,10 +48,11 @@ def listTables( schema = None, exclude = None, remote = None ):
         exclude = []
 
     if remote is None:
-        data = API.db.session.connection().execute( "SHOW TABLES FROM {}".format( schema ) )
+        data = API.db.session.connection().execute( text( "SHOW TABLES FROM {}".format( schema ) ) )
+
 
     else:
-        data = remote.session.connection().execute( "SHOW TABLES FROM {}".format( schema ) )
+        data = remote.session.connection().execute( text( "SHOW TABLES FROM {}".format( schema ) ) )
 
     result = []
     for rec,*args in data:
@@ -68,10 +69,10 @@ def getCurrentVersion( schema = None, remote = None):
 
     try:
         if remote is None:
-            data = API.db.session.connection().execute( f"SELECT version_num FROM {schema}.alembic_version" )
+            data = API.db.session.connection().execute( text( f"SELECT version_num FROM {schema}.alembic_version" ) )
 
         else:
-            data = remote.session.connection().execute( f"SELECT version_num FROM {schema}.alembic_version" )
+            data = remote.session.connection().execute( text( f"SELECT version_num FROM {schema}.alembic_version" ) )
 
         if data.rowcount > 0:
             version_num = data.fetchone()[0]
@@ -102,14 +103,14 @@ def getCurrentVersion( schema = None, remote = None):
 
 def copySchema( oSchema, nSchema ):
     connection = API.db.session.connection()
-    connection.execute( "DROP DATABASE IF EXISTS {}".format( nSchema ) )
-    connection.execute( "CREATE DATABASE {}".format( nSchema ) )
+    connection.execute( text( "DROP DATABASE IF EXISTS {}".format( nSchema ) ) )
+    connection.execute( text( "CREATE DATABASE {}".format( nSchema ) ) )
 
     for table in listTables( oSchema ):
         cmd = "CREATE TABLE {nSchema}.{table} SELECT * FROM {oSchema}.{table}".format( oSchema = oSchema,
                                                                                        nSchema = nSchema,
                                                                                        table = table )
-        connection.execute( cmd )
+        connection.execute( text( cmd ) )
 
     return
 
@@ -121,7 +122,7 @@ def mapFieldLists( connection, destination, source ):
         return list( set( li1 ).intersection( li2 ) )
 
     def GetFieldList( table_schema ):
-        result = connection.execute( "SHOW FULL COLUMNS FROM {};".format( table_schema ) )
+        result = connection.execute( text( "SHOW FULL COLUMNS FROM {};".format( table_schema ) ) )
         fieldList = [ ]
         fieldData = {}
         for field, field_type, _, field_null, field_index, *field_options in result:
@@ -180,7 +181,7 @@ def mapFieldLists( connection, destination, source ):
 def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
     def reccount( connection, schema_table ):
         try:
-            for rec in connection.execute( "select count(*) from {};".format( schema_table ) ):
+            for rec in connection.execute( text( "select count(*) from {};".format( schema_table ) ) ):
                 return rec[ 0 ]
 
         except Exception:
@@ -193,9 +194,9 @@ def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
     errorTable = {}
     connection = API.db.session.connection()
     API.app.logger.info( "Begin work" )
-    connection.execute( "SET FOREIGN_KEY_CHECKS=0;" )
-    connection.execute( "SET SESSION sql_mode='ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'" )
-    connection.execute( "BEGIN WORK;" )
+    connection.execute( text( "SET FOREIGN_KEY_CHECKS=0;" ) )
+    connection.execute( text( "SET SESSION sql_mode='ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION'" ) )
+    connection.execute( text( "BEGIN WORK;" ) )
     total = 0
     errors = 0
     table = ''
@@ -221,7 +222,7 @@ def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
 
             if clear:
                 API.app.logger.info( "Clear '{}' table".format( table ) )
-                connection.execute( "DELETE FROM {}.{};".format( destSchema, table ) )
+                connection.execute( text( "DELETE FROM {}.{};".format( destSchema, table ) ) )
 
             print( "Copying table '{}'".format( table ) )
             cmd = INSERT_INTO.format( destSchema = destSchema, destFields = destFieldList,
@@ -230,7 +231,7 @@ def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
 
             count = 0
             try:
-                connection.execute( cmd )
+                connection.execute( text( cmd ) )
                 count = reccount( connection, "{}.{};".format( destSchema, table ) )
                 resultTable[ table ] = count
                 API.app.logger.info( "{} Inserted into '{}' table".format( count, table ) )
@@ -283,7 +284,7 @@ def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
                 skipped.append( (table, exc) )
 
         API.app.logger.info( "Commit work" )
-        connection.execute( "COMMIT WORK;" )
+        connection.execute( text( "COMMIT WORK;" ) )
         API.app.logger.info( "{} records copied".format( total ) )
 
     except ( IntegrityError, InternalError, ProgrammingError ) as exc:
@@ -294,12 +295,12 @@ def copySchema2( destSchema, srcSchema, clear, ignore_errors = False ):
             API.app.logger.error( "{} in table {}".format( exc.args[ 0 ],table ) )
 
         API.app.logger.info( "Rollback work" )
-        connection.execute( "ROLLBACK WORK;" )
+        connection.execute( text( "ROLLBACK WORK;" ) )
 
     except Exception as exc:
         API.app.logger.info( "Rollback work" )
         API.app.logger.error( exc )
         connection.execute( "ROLLBACK WORK;" )
 
-    connection.execute( "SET FOREIGN_KEY_CHECKS=1;" )
+    connection.execute( text( "SET FOREIGN_KEY_CHECKS=1;" ) )
     return resultTable, errorTable, total, errors, skipped
