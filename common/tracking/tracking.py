@@ -80,7 +80,7 @@ class RecordTracking( object ):
                 data = json.dumps( [record.dictionary for record in record_instances], cls = JsonEncoder )
 
             version_num = ""
-            for row in API.db.engine.execute( text( 'select version_num from alembic_version' ) ):
+            for row in API.db.session.execute( text( 'select version_num from alembic_version' ) ):
                 version_num = row[ 0 ]
 
             record_name_field = getattr( API.tables_dict[tables[0]], "__secondary_key__", "" )
