@@ -1,13 +1,26 @@
 import os
 from flask.cli import AppGroup
 import webapp2.api as API
+import flask
 import click
 from flask.cli import ( pass_script_info,
                         CertParamType,
                         _validate_key,
                         get_debug_flag,
-                        show_server_banner )
+                        show_server_banner as _show_server_banner )
 from webapp2.common.dispapp import DispatchingApp, get_env
+
+
+if flask.__version__ <= '1.0.2':
+    def show_server_banner( env: str, debug: bool ):
+        _show_server_banner( env, debug, API.PROJECT_ROOT, debug )
+        return
+
+else:
+    def show_server_banner( env: str, debug: bool ):
+        _show_server_banner( env, debug )
+        return
+
 
 @click.group( cls = AppGroup )
 def serve():
