@@ -32,7 +32,7 @@ def render_query(statement, dialect=None):
     """
     if isinstance(statement, Query):
         if dialect is None:
-            dialect = statement.session.bind.dialect
+            dialect = statement.session.get_bind().dialect
 
         statement = statement.statement
 
@@ -195,7 +195,7 @@ class RecordLock( object ):
         if user is None:
             user = 'single.user'
 
-        API.logger.info( "request: {}".format( request ) )
+        API.logger.debug( "request: {}".format( request ) )
         if isinstance( request, dict ):
             obj._data = request
 
@@ -406,9 +406,11 @@ class CrudInterface( object ):
                 query = query.join( childTableClass, and_(getattr(model_cls, model_cls.__field_list__[0]) == getattr(childTableClass, foreignKey)) )
                 # apply filters for child table
                 query = self.makeFilter( query, childFilter.filters, childFilter.childFilters, model_cls=childTableClass )
+
             except Exception as e:
                 traceback.print_exc()
                 API.logger.error("Child filter not working, reason: " + str(e))
+
         return query
 
     class PagedListBodyInput(BaseModel):
@@ -437,8 +439,15 @@ class CrudInterface( object ):
             if isinstance(item, dict):
                 item = BaseFilter.parse_obj(item)
 
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
         API.app.logger.debug( "Filter {}".format( filter ) )
-        query = self.makeFilter( self.getDbSession( body.options ).query( self._model_cls ), filter )
+        query = self.makeFilter( self.getDbSession( options ).query( self._model_cls ), filter )
         API.app.logger.debug( "SQL-QUERY : {}".format( render_query( query ) ) )
         recCount = query.count()
         API.app.logger.debug( "SQL-QUERY original count {}".format( recCount ) )
@@ -493,8 +502,15 @@ class CrudInterface( object ):
         t1 = time.time()
         self.checkAuthentication()
         filter = { id: value }
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
         API.app.logger.debug( 'GET: {}/list/{}/{} by {}'.format( self._uri, id, value, self._lock_cls().user ) )
-        recordList = self.getDbSession().query( self._model_cls ).filter_by( **filter ).all()
+        recordList = self.getDbSession( options ).query( self._model_cls ).filter_by( **filter ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'filteredList => count: {}'.format( len( recordList ) ) )
         if self._delayed and t1 + 1 > time.time():
@@ -507,7 +523,14 @@ class CrudInterface( object ):
     def recordList( self ):
         self.checkAuthentication()
         API.app.logger.debug( 'GET: {}/list by {}'.format( self._uri, self._lock_cls().user ) )
-        recordList = self.getDbSession().query( self._model_cls ).all()
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
+        recordList = self.getDbSession( options ).query( self._model_cls ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'recordList => count: {}'.format( len( recordList ) ) )
         return result
@@ -543,9 +566,15 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( request ) )
         API.app.logger.debug( 'GET: {}/get {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
-        #record = self._model_cls.query.get( locker.id )
+        options = {}
         try:
-            query = self.getDbSession().query( self._model_cls )
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
+        try:
+            query = self.getDbSession( options ).query( self._model_cls )
             for column, value in locker.data.items():
                 query = query.filter(getattr(self._model_cls, column) == value)
 
@@ -563,15 +592,23 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'GET: {}/get/{} by {}'.format( self._uri, locker.id, locker.user ) )
+        options = {}
         try:
-            record = self._model_cls.query.get( locker.id )
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
+        try:
+            record = self.getDbSession( options ).query( self._model_cls ).get( locker.id )
             result = self._schema_cls.jsonify( record )
+
         except Exception as exc:
             raise BackendError(exc, problem="{} record with id {} does not exist in the database".format( self._model_cls.__name__, id ),
             solution="Ensure that you request an existing item")
+
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
         return result
-
 
     class GetColValueBodyInput(BaseModel):
         id: int
@@ -580,7 +617,14 @@ class CrudInterface( object ):
     @with_valid_input(body=GetColValueBodyInput)
     @cache.memoize(200)
     def recordGetColValue( self, body: GetColValueBodyInput ):
-        record = self._model_cls.query.get( body.id )
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
+        record = self.getDbSession(options).query(self._model_cls).get( body.id )
         API.app.logger.debug( 'Get {} value for {} record with id: {}'.format( body.column, self._model_cls, body.id ) )
         value = getattr(record, body.column, "")
         result = jsonify({"value": value})
@@ -590,7 +634,14 @@ class CrudInterface( object ):
         self.checkAuthentication()
         locker = kwargs.get( 'locker', self._lock_cls.locked( int( id ) ) )
         API.app.logger.debug( 'DELETE: {} {} by {}'.format( self._uri, locker.data, locker.user ) )
-        record = self._model_cls.query.get( locker.id )
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
+        record = self.getDbSession(options).query( self._model_cls).get( locker.id )
         #if self._lock:
         #recordData = record.dictionary
         #for relation in self._relations:
@@ -607,7 +658,7 @@ class CrudInterface( object ):
         #                           locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
-        self.getDbSession().delete( record )
+        self.getDbSession( options ).delete( record )
         #API.app.logger.debug( 'Commit delete' )
         message = ''
         result = True
@@ -627,8 +678,15 @@ class CrudInterface( object ):
 
     def updateRecord( self, data: dict, record: any, user = None ):
         self.checkAuthentication()
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
         if isinstance( record, int ):
-            record = self.getDbSession().query( self._model_cls ).get( record )
+            record = self.getDbSession( options ).query( self._model_cls ).get( record )
 
         elif isinstance( record, self._model_cls ):
             pass
@@ -679,8 +737,14 @@ class CrudInterface( object ):
 
         API.app.logger.debug( 'POST: {}/put {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
 
-        with self.getDbSession().no_autoflush:
+        except:
+            pass
+
+        with self.getDbSession( options ).no_autoflush:
             result = self._schema_cls.jsonify( record )
             result.headers["USER"] = locker.user
             API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
@@ -693,9 +757,15 @@ class CrudInterface( object ):
 
         API.app.logger.debug( 'POST: {}/update {} by {}'.format( self._uri, repr( locker.data ), locker.user ) )
         record = self.updateRecord( locker.data, locker.id, locker.user )
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
 
         # the jsonification changes the dirty set of sqlalchemy
-        with self.getDbSession().no_autoflush:
+        with self.getDbSession( options ).no_autoflush:
             result = self._schema_cls.jsonify( record )
             result.headers[ "USER" ] = locker.user
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
@@ -748,8 +818,15 @@ class CrudInterface( object ):
             for childFilter in body.childFilters:
                 childFilters.append(TableFilter.parse_obj(childFilter))
 
+        options = {}
+        try:
+            options = json.loads( request.headers.environ[ 'HTTP_X_ACME_SYSENV' ] )
+
+        except:
+            pass
+
         # apply specified filter on the query
-        query = self.makeFilter(self.getDbSession().query( self._model_cls ), filter, childFilters=childFilters )
+        query = self.makeFilter(self.getDbSession( options ).query( self._model_cls ), filter, childFilters=childFilters )
 
         pivotItem = None
         if body.firstItem not in (None, 0) and body.pageIndex == 0:

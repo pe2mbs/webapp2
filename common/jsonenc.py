@@ -17,13 +17,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
-import flask.json
+# import flask.json
 import json
 import decimal
 import datetime
 
 
-class WebAppJsonEncoder( flask.json.JSONEncoder ):
+class WebAppJsonEncoder( json.JSONEncoder ):
     def default( self, obj ):
         if isinstance( obj, ( bytes, bytearray ) ):
             return obj.decode('utf-8')
@@ -46,7 +46,7 @@ class WebAppJsonEncoder( flask.json.JSONEncoder ):
             return obj
 
         # default, if not bytes/byte-array object. Let Flask do it thing
-        return flask.json.JSONEncoder.default( self, obj )
+        return json.JSONEncoder.default( self, obj )
 
 
 
