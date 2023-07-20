@@ -254,11 +254,11 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
                 # One root module
                 modules = [ API.app.config[ 'API_MODULE' ].strip() ]
 
+            registerAngular()
             for mod in modules:
                 API.app.logger.info( f"Loading module : {mod}" )
                 module = importlib.import_module( f"{mod}.main" )
                 API.app.logger.info("Application module : {}".format( module ) )
-                registerAngular()
                 if hasattr( module, 'registerApi' ):
                     sig = signature( module.registerApi )
                     if len( sig.parameters ) == 2:
