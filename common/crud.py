@@ -37,7 +37,7 @@ def render_query(statement, dialect=None):
         statement = statement.statement
 
     elif dialect is None:
-        dialect = statement.bind.dialect
+        dialect = statement.get_bind().dialect
 
     class LiteralCompiler(dialect.statement_compiler):
 

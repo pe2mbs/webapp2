@@ -120,7 +120,7 @@ if db is None:
     # Make sure that the db is initialized only once!
     db = SQLAlchemy( metadata = MetaData( naming_convention = naming_convention), session_options = session_options )
     API.db = db
-    # if "mysql" in db.session.bind.dialect.name:
+    # if "mysql" in db.session.get_bind().dialect.name:
     #     # This is nessary for the QUERY below to read the changes make by other processes.
     #     logging.info( "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED" )
     #     db.session.execute( "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED" )
@@ -181,7 +181,7 @@ def getDataBase( app = None ):
     # This to configure the database
     db_thread.init_app( app )
     app.app_context().push()
-    if "mysql" in db_thread.session.bind.dialect.name:
+    if "mysql" in db_thread.session.get_bind().dialect.name:
         # This is nessary for the QUERY below to read the changes make by other processes.
         app.logger.info( "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED" )
         db_thread.session.execute( "SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED" )
