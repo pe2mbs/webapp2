@@ -246,14 +246,24 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         API.app.static_folder   = os.path.join( root_path, API.app.config[ 'ANGULAR_PATH' ] ) + "/"
         API.app.url_map.strict_slashes = False
         if module is None and 'API_MODULE' in API.app.config:
-            if ',' in API.app.config[ 'API_MODULE' ]:
-                # Multiple modules
-                modules = [ m.strip() for m in API.app.config[ 'API_MODULE' ].split(',') ]
+            mods = API.app.config[ 'API_MODULE' ]
+            API.logger.warning( f'API_MODULE: : {mods}' )
+            if isinstance( mods, str ):
+                if ',' in mods:
+                    # Multiple modules
+                    modules = [ m.strip() for m in mods.split(',') ]
+
+                else:
+                    # One root module
+                    modules = [ mods.strip() ]
+                    
+            elif isinstance( mods, (list,tuple) ):
+                modules = mods
 
             else:
-                # One root module
-                modules = [ API.app.config[ 'API_MODULE' ].strip() ]
+                raise Exception( "Invalid API_MODULE configuration" )
 
+            API.logger.warning( f'Loading modules: {modules}' )
             registerAngular()
             for mod in modules:
                 API.app.logger.info( f"Loading module : {mod}" )
