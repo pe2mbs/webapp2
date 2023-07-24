@@ -165,6 +165,8 @@ def destroyDatabaseObject( obj ):
     return
 
 def getDataBase( app = None ):
+    raise Exception("This MUST NOT BE USED: use from webapp2.common.conect import dbConextPush; import webapp2.api as API; dbConextPush(); API.db.....")
+
     if has_request_context():
         return db
 
@@ -215,7 +217,6 @@ def referenceColumn( tablename, nullable = False, pk_name = 'id', **kwargs ):
         category_id = reference_col('category')
         category = relationship('Category', backref='categories')
     """
-    db = getDataBase()
     return db.Column( db.ForeignKey( '{0}.{1}'.format( tablename, pk_name ) ),
                    nullable = nullable,
                    **kwargs )
