@@ -100,8 +100,15 @@ def dev( info, host, port, reload, debugger, eager_loading,
     extra_files = applic.config.get( 'EXTRA_FILES', [] )
     appPath     = applic.config.get( 'APP_PATH', os.curdir )
     appApiMod   = applic.config.get( 'API_MODULE', '' )
-    extra_files.extend( [ os.path.join( appPath, appApiMod, 'menu.yaml' ),
-                          os.path.join( appPath, appApiMod, 'release.yaml' ) ] )
+    if isinstance( appApiMod, list ):
+        for mod in appApiMod:
+            extra_files.extend( [ os.path.join( appPath, mod, 'menu.yaml' ),
+                                  os.path.join( appPath, mod, 'release.yaml' ) ] )
+
+    elif isinstance( appApiMod, str ):
+        extra_files.extend([os.path.join(appPath, appApiMod, 'menu.yaml'),
+                            os.path.join(appPath, appApiMod, 'release.yaml')])
+
     if API.socketio is not None:
         app.debug = True
         API.socketio.run( app, host, port,
