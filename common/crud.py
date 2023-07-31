@@ -275,7 +275,7 @@ class CrudInterface( object ):
         self.registerRoute( 'get', self.recordGet, methods = [ 'GET' ] )
         self.registerRoute( 'get/<int:id>', self.recordGetId, methods = [ 'GET' ] )
         self.registerRoute( 'getvalue', self.recordGetColValue, methods = [ 'POST' ] )
-        self.registerRoute( '<int:id>', self.recordDelete, methods = [ 'DELETE' ] )
+        self.registerRoute( '<id>', self.recordDelete, methods = [ 'DELETE' ] )
         self.registerRoute( 'put', self.recordPut, methods = [ 'POST' ] )
         self.registerRoute( 'update', self.recordPatch, methods = [ 'POST' ] )
         self.registerRoute( 'select', self.selectList, methods = [ 'POST', 'GET' ] )
