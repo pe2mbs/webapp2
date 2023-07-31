@@ -495,6 +495,8 @@ class CrudInterface( object ):
             time.sleep( ( t1 + 1 ) - time.time() )
 
         API.app.logger.debug( 'filteredList => {}'.format( result ) )
+        API.db.session.remove()
+        API.db.session.close()
         return result
 
     @deprecated('This should not be used anymore')
@@ -533,6 +535,8 @@ class CrudInterface( object ):
         recordList = self.getDbSession( options ).query( self._model_cls ).all()
         result = self._schema_list_cls.jsonify( recordList )
         API.app.logger.debug( 'recordList => count: {}'.format( len( recordList ) ) )
+        API.db.session.remove()
+        API.db.session.close()
         return result
 
     def primaryKey( self, **kwargs ):
@@ -586,6 +590,8 @@ class CrudInterface( object ):
             solution="Ensure that you request an existing item")
 
         API.app.logger.debug( 'recordGet() => {0}'.format( result ) )
+        API.db.session.remove()
+        API.db.session.close()
         return result
 
     def recordGetId( self, id, **kwargs ):
@@ -608,6 +614,8 @@ class CrudInterface( object ):
             solution="Ensure that you request an existing item")
 
         API.app.logger.debug( 'recordGetId() => {0}'.format( record ) )
+        API.db.session.remove()
+        API.db.session.close()
         return result
 
     class GetColValueBodyInput(BaseModel):
@@ -628,6 +636,8 @@ class CrudInterface( object ):
         API.app.logger.debug( 'Get {} value for {} record with id: {}'.format( body.column, self._model_cls, body.id ) )
         value = getattr(record, body.column, "")
         result = jsonify({"value": value})
+        API.db.session.remove()
+        API.db.session.close()
         return result
 
     def recordDelete( self, id, **kwargs ):
@@ -674,6 +684,8 @@ class CrudInterface( object ):
         response = jsonify( ok = result, reason = message )
         response.headers["USER"] = locker.user
         self.deleteCache()
+        API.db.session.remove()
+        API.db.session.close()
         return response
 
     def updateRecord( self, data: dict, record: any, user = None ):
@@ -749,7 +761,10 @@ class CrudInterface( object ):
             result.headers["USER"] = locker.user
             API.app.logger.debug( 'recordPut() => {0}'.format( record ) )
             self.deleteCache()
-            return result
+
+        API.db.session.remove()
+        API.db.session.close()
+        return result
 
     def recordPatch( self, **kwargs ):
         self.checkAuthentication()
@@ -770,7 +785,10 @@ class CrudInterface( object ):
             result.headers[ "USER" ] = locker.user
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
             self.deleteCache()
-            return result
+
+        API.db.session.remove()
+        API.db.session.close()
+        return result
 
     class SelectListBodyInput(BaseModel):
         value: Optional[str]
@@ -853,6 +871,9 @@ class CrudInterface( object ):
         # API.app.logger.debug( 'selectList => result: {}'.format( result ) )
         if body.pageIndex is not None and body.pageSize is not None:
             return jsonify(  { "itemList": result, "totalItems": totalItems } )
+
+        API.db.session.remove()
+        API.db.session.close()
         return jsonify( result )
 
     def deleteCache( self ):
@@ -871,7 +892,6 @@ class CrudInterface( object ):
         return ""
 
     def unlock( self ):
-        print("################### here", request)
         if self._lock:
             self.checkAuthentication()
             return jsonify( self._lock_cls.unlock( request ) )
