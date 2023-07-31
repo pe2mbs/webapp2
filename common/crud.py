@@ -262,6 +262,7 @@ class CrudInterface( object ):
     _uri = ''
     _relations = []
     _delayed = False
+    _cacheTimeout = 150
 
     def __init__( self, blue_print, use_jwt = False, session_function = None ):
         self._blue_print = blue_print
@@ -422,7 +423,7 @@ class CrudInterface( object ):
         options: Optional[ dict ]
 
     @with_valid_input(body=PagedListBodyInput)
-    @cache.memoize(timeout=150)
+    @cache.memoize(timeout=_cacheTimeout)
     def pagedList( self, body: PagedListBodyInput ):
         if body.cacheDeactivator != None:
             self.deleteCache()
@@ -623,7 +624,7 @@ class CrudInterface( object ):
         column: str
 
     @with_valid_input(body=GetColValueBodyInput)
-    @cache.memoize(200)
+    @cache.memoize(_cacheTimeout)
     def recordGetColValue( self, body: GetColValueBodyInput ):
         options = {}
         try:
@@ -806,7 +807,7 @@ class CrudInterface( object ):
             pageIndex: {self.pageIndex} pageSize: {self.pageSize} firstItem: {self.firstItem}>"
 
     @with_valid_input(body=SelectListBodyInput)
-    @cache.memoize(150)
+    @cache.memoize(_cacheTimeout)
     def selectList( self, body: SelectListBodyInput ):
         name_field = self._model_cls.__field_list__[ 1 ]
         for fld in self._model_cls.__field_list__:
