@@ -652,39 +652,34 @@ class CrudInterface( object ):
         except:
             pass
 
-        record = self.getDbSession(options).query( self._model_cls).get( locker.id )
-        #if self._lock:
-        #recordData = record.dictionary
-        #for relation in self._relations:
-            # Now
-        #    if 'delete' in relation.get( 'cascade' ):
-        #        cascadeRecords = []
-        #        for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
-        #            cascadeRecords.append( relRecord.dictionary )
-        #        recordData[ relation.get( 'class', '' ) ] = cascadeRecords
+        dbSession = self.getDbSession(options)
+        record = dbSession.query( self._model_cls).get( locker.id )
+        if not self._session_function:
+            recordData = record.dictionary
+            for relation in self._relations:
+                # Now
+                if 'delete' in relation.get( 'cascade' ):
+                    cascadeRecords = []
+                    for relRecord in getattr( record, relation.get( 'table', '' ) + '_relation' ):
+                        cascadeRecords.append( relRecord.dictionary )
 
-        #API.recordTracking.delete( self._model_cls.__tablename__,
-        #                           locker.id,
-        #                           recordData,
-        #                           locker.user )
+                    recordData[ relation.get( 'class', '' ) ] = cascadeRecords
+
+            API.recordTracking.delete( self._model_cls.__tablename__,
+                                       locker.id,
+                                       recordData,
+                                       locker.user )
 
         API.app.logger.debug( 'Deleting record: {}'.format( record ) )
-        self.getDbSession( options ).delete( record )
-        #API.app.logger.debug( 'Commit delete' )
+        dbSession.delete( record )
+        API.app.logger.debug( 'Commit delete' )
+        dbSession.commit()
+        self.deleteCache()
         message = ''
         result = True
-        #try:
-        #    API.db.session.commit()
-        #    result = True
-
-        #except IntegrityError:
-        #    message = 'Could not delete due relations still exists'
-        #    result = False
-
         API.app.logger.debug( 'recordDelete() => {} {}'.format( result, record ) )
         response = jsonify( ok = result, reason = message )
         response.headers["USER"] = locker.user
-        self.deleteCache()
         API.db.session.remove()
         API.db.session.close()
         return response
