@@ -781,6 +781,7 @@ class CrudInterface( object ):
             result.headers[ "USER" ] = locker.user
             API.app.logger.debug( 'recordPatch() => {}'.format( record ) )
             self.deleteCache()
+            API.db.session.commit()
 
         API.db.session.remove()
         API.db.session.close()
