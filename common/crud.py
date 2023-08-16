@@ -263,6 +263,7 @@ class CrudInterface( object ):
     _relations = []
     _delayed = False
     _cacheTimeout = 150
+    _tableFilter = None
 
     def __init__( self, blue_print, use_jwt = False, session_function = None ):
         self._blue_print = blue_print
@@ -299,6 +300,9 @@ class CrudInterface( object ):
         # Return the normal session
         return API.db.session
 
+    def pagedTableFilter( self, query ):
+        return query
+
     @property
     def useJWT( self ):
         return self.__useJWT
@@ -327,6 +331,10 @@ class CrudInterface( object ):
     def makeFilter( self, query, filter: Union[List[BaseFilter], List[dict]], childFilters: List[TableFilter] = [], model_cls = None ):
         if model_cls is None:
             model_cls = self._model_cls
+
+        if callable( self._tableFilter ):
+            query = self._tableFilter( query )
+
         for item in filter:
             # TODO: can be removed once the filter is passed as a BaseFilter class
             if isinstance(item, dict):
