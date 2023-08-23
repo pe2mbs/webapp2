@@ -210,13 +210,13 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             API.app.logger  = logging.getLogger( logging_name )
 
         oldFactory = logging.getLogRecordFactory()
-        currentFolderLength = len( os.getcwd() )
+        currentFolderLength = len( os.getcwd() ) + 1
         def recordFactory( *args, **kwargs ):
             record = oldFactory( *args, **kwargs )
             record.pathname = record.pathname[ currentFolderLength : ]
             return record
 
-        API.app.logger.info( f"LENGTH: {currentFolderLength} = {os.getcwd()}" )
+        API.app.logger.info( f"Current Working Directory Folder: {os.getcwd()} Length: {currentFolderLength}" )
         logging.setLogRecordFactory( recordFactory )
         API.logger      = API.app.logger
         API.app.logger.warning( "Logging Flask application: {}".format( logging.getLevelName( API.app.logger.level ) ) )
