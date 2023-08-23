@@ -209,6 +209,14 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         if logging_name is not None:
             API.app.logger  = logging.getLogger( logging_name )
 
+        oldFactory = logging.getLogRecordFactory()
+        currentFolderLength = len( os.curdir )
+        def recordFactory( *args, **kwargs ):
+            record = oldFactory( *args, **kwargs )
+            record.pathname = record.pathname[ currentFolderLength : ]
+            return record
+
+        logging.setLogRecordFactory( recordFactory )
         API.logger      = API.app.logger
         API.app.logger.warning( "Logging Flask application: {}".format( logging.getLevelName( API.app.logger.level ) ) )
         if os.environ.get( 'FLASK_DEGUG', 0 ) == 1:
@@ -256,7 +264,7 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
                 else:
                     # One root module
                     modules = [ mods.strip() ]
-                    
+
             elif isinstance( mods, (list,tuple) ):
                 modules = mods
 
