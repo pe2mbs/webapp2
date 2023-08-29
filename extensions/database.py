@@ -23,6 +23,7 @@ import logging
 import threading
 import sqlalchemy.orm as ORM
 import sqlalchemy.types as types
+from sqlalchemy.dialects import mysql
 import webapp2.api as API
 from webapp2.common.compat import basestring
 from flask_sqlalchemy import SQLAlchemy
@@ -59,47 +60,50 @@ def get_model_by_tablename( tablename ):
     return None
 
 
-class LONGTEXT( types.UserDefinedType ):
-    item_type = types.Text
-    def __init__( self ):
-        return
+LONGTEXT = mysql.LONGTEXT
+MEDIUMTEXT = mysql.MEDIUMTEXT
 
-    def get_col_spec( self, **kw ):
-        return "LONGTEXT"
+# class LONGTEXT( types.UserDefinedType ):
+#     item_type = types.Text
+#     def __init__( self ):
+#         return
+#
+#     def get_col_spec( self, **kw ):
+#         return "LONGTEXT"
+#
+#     def bind_processor( self, dialect ):
+#         def process( value ):
+#             return value
+#
+#         return process
+#
+#     def result_processor( self, dialect, coltype ):
+#         def process( value ):
+#             return value
+#
+#         return process
 
-    def bind_processor( self, dialect ):
-        def process( value ):
-            return value
 
-        return process
-
-    def result_processor( self, dialect, coltype ):
-        def process( value ):
-            return value
-
-        return process
-
-
-class MEDIUMTEXT( types.UserDefinedType ):
-    item_type = types.Text
-    def __init__( self ):
-        return
-
-    def get_col_spec( self, **kw ):
-        return "MEDIUMTEXT"
-
-    def bind_processor( self, dialect ):
-        def process( value ):
-            return value
-
-        return process
-
-    def result_processor( self, dialect, coltype ):
-        def process( value ):
-            return value
-
-        return process
-
+# class MEDIUMTEXT( types.UserDefinedType ):
+#     item_type = types.Text
+#     def __init__( self ):
+#         return
+#
+#     def get_col_spec( self, **kw ):
+#         return "MEDIUMTEXT"
+#
+#     def bind_processor( self, dialect ):
+#         def process( value ):
+#             return value
+#
+#         return process
+#
+#     def result_processor( self, dialect, coltype ):
+#         def process( value ):
+#             return value
+#
+#         return process
+#
 
 @compiles(LONGTEXT, "sqlite")
 def compile_binary_sqlite(type_, compiler, **kw):
