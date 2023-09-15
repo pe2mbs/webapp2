@@ -20,6 +20,10 @@ class DbBaseMemory( object ):
             for field in self.__model_cls__.__field_list__:
                 setattr( self, field, getattr( record, field ) )
 
+        elif isinstance( record, DbBaseMemory ):
+            for field in self.__model_cls__.__field_list__:
+                setattr( self, field, getattr( record, field ) )
+
         for key, value in kwargs.items():
             setattr( self, key, value )
 
