@@ -360,7 +360,7 @@ class CrudInterface( object ):
             if len(attributes) > 1:
                 for i in range(0, len(attributes) - 1):
                     relationship = getattr( relatedClass, attributes[i])
-                    query = query.join(relationship)
+                    query = query.outerjoin(relationship)
                     relatedClass = relationship.mapper.class_
 
             if operator == 'EQ':
@@ -412,7 +412,7 @@ class CrudInterface( object ):
                 # join with child table based on foreign key
                 childTableClass = tables_dict[childFilter.table]
                 foreignKey = childFilter.foreignKey
-                query = query.join( childTableClass, and_(getattr(model_cls, model_cls.__field_list__[0]) == getattr(childTableClass, foreignKey)) )
+                query = query.outerjoin( childTableClass, and_(getattr(model_cls, model_cls.__field_list__[0]) == getattr(childTableClass, foreignKey)) )
                 # apply filters for child table
                 query = self.makeFilter( query, childFilter.filters, childFilter.childFilters, model_cls=childTableClass )
 
@@ -471,7 +471,7 @@ class CrudInterface( object ):
                 relationship = getattr( relatedClass, attributes[i])
                 # make join if not already done through filtering
                 if shouldJoin:
-                    query = query.join(relationship)
+                    query = query.outerjoin(relationship)
 
                 relatedClass = relationship.mapper.class_
 
