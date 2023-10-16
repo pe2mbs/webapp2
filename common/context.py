@@ -3,11 +3,17 @@ from sqlalchemy import text
 import threading
 import flask
 
+registeredThreads = {}
+
 
 def dbContextPush():
+    global registeredThreads
     name = threading.currentThread().name
+    if name in registeredThreads:
+        return registeredThreads[ name ]
+
     if isinstance( flask.globals.app_ctx, flask.ctx.AppContext ):
-        API.logger.info( f"Context present for name {name}" )
+        API.logger.debug( f"Context present for name {name}" )
 
     else:
         API.app.app_context().push()
@@ -25,6 +31,7 @@ def dbContextPush():
         session = API.db.session
         API.logger.info( f"Using default database session for {name}" )
 
+    registeredThreads[ name ] = session
     if "mysql" in session.get_bind().dialect.name:
         # This is nessary for the QUERY below to read the changes make by other processes.
         API.logger.info( f"'SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED' for {name} " )
