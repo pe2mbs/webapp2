@@ -2,7 +2,7 @@
 """Main webapp application package."""
 #
 # Main webapp application package
-# Copyright (C) 2018-2020 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
+# Copyright (C) 2018-2023 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
 #
 # This library is free software; you can redistribute it and/or modify
 # it under the terms of the GNU Library General Public License GPL-2.0-only
@@ -104,14 +104,15 @@ def index():
         raise
 
 
-@bluePrint.route( r"/<regex('\w\.(js|css|map|ico|jpg|eps|png|woff|woff2|svg|eot|ttf)'):path>" )
+@bluePrint.route( r"/<regex('\w\.(js|css|map|ico|jpg|eps|png|woff|woff2|svg|eot|ttf|map)'):path>" )
 def angularSource( path ):
     angular_path = current_app.config[ 'ANGULAR_PATH' ]
     env = current_app.config[ 'ENV' ]
     current_app.logger.info( "Angular dist ({}) : {}".format( env, angular_path ) )
     return send_from_directory( angular_path, path )
 
-@bluePrint.route( r"/assets/<regex('\w\.(ico|jpg|eps|png|woff|woff2|svg|eot|ttf)'):path>" )
+
+@bluePrint.route( r"/assets/<regex('\w\.(ico|jpg|eps|png|woff|woff2|svg|eot|ttf|map)'):path>" )
 def angularAsserts( path ):
     angular_path = current_app.config[ 'ANGULAR_PATH' ]
     env = current_app.config[ 'ENV' ]
@@ -124,7 +125,7 @@ def angularAsserts( path ):
 #
 #
 class Feedback( db.Model ):
-    __tablename__       = 'ap_feedback'
+    __tablename__       = 'feedback'
     F_ID                = db.Column( "f_id",        db.Integer, autoincrement = True, primary_key = True )
     F_NAME              = db.Column( "f_name",      db.String( 50 ), nullable = False )
     F_TYPE              = db.Column( "f_type",      db.Integer, nullable = False )
@@ -156,24 +157,25 @@ def feedback():
 @bluePrint.route( "/api/database", methods=[ 'GET' ] )
 def getDatabaseConfig():
     from collections import namedtuple
-    dbCfg = current_app.config[ 'DATABASE' ]
+    dbCfg           = current_app.config[ 'DATABASE' ]
     if dbCfg.get( 'ENGINE', 'sqlite' ) == 'oracle':
-        dbCfg[ 'SCHEMA' ] = dbCfg.get('TNS', '' )
+        dbCfg[ 'SCHEMA' ] = dbCfg.get( 'TNS', '' )
 
-    schema = dbCfg.get( 'SCHEMA', 'database.db' )
-    connection = db.session.connection()
-    result = connection.execute( f"select version_num from {schema}.alembic_version" )
-    Record = namedtuple('Record', result.keys())
-    records = [Record(*r) for r in result.fetchall()]
+    schema          = dbCfg.get( 'SCHEMA', 'database.db' )
+    connection      = db.session.connection()
+    result          = connection.execute( f"select version_num from {schema}.alembic_version" )
+    Record          = namedtuple('Record', result.keys())
+    records         = [Record(*r) for r in result.fetchall()]
     alembic_version = [ r.version_num for r in records ]
     API.logger.info( alembic_version[0] )
-    return jsonify( engine   = dbCfg.get( 'ENGINE', 'sqlite' ),
-                    database = schema,
-                    username = dbCfg.get( 'USERNAME', '' ),
-                    password = dbCfg.get( 'PASSWORD', '' ),
-                    hostname = dbCfg.get( 'HOST', '' ),
-                    hostport = dbCfg.get( 'PORT', 5432 ),
-                    version = alembic_version[0] )
+
+    return jsonify( engine      = dbCfg.get( 'ENGINE', 'sqlite' ),
+                    database    = dbCfg.get( 'SCHEMA', 'database.db' ),
+                    username    = dbCfg.get( 'USERNAME', '' ),
+                    password    = dbCfg.get( 'PASSWORD', '' ),
+                    hostname    = dbCfg.get( 'HOST', '' ),
+                    version     = alembic_version[ 0 ],
+                    hostport    = dbCfg.get( 'PORT', 5432 ) )
 
 
 @bluePrint.route( "/api/version", methods=[ 'GET' ] )

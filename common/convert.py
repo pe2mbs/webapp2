@@ -1,7 +1,7 @@
 from dateutil.parser import parse
 from dateutil.tz import gettz
 
-to_zone = gettz()
+to_zone = gettz( 'Europe/Amsterdam' )
 
 def value2Label( dictionary, value ):
     try:
