@@ -21,7 +21,7 @@ from flask import jsonify
 from werkzeug.exceptions import HTTPException
 
 
-def template( data, code=500 ):
+def template( data, code = 500 ):
     return { 'message': { 'errors': { 'body': data } }, 'status_code': code }
 
 
@@ -87,3 +87,11 @@ class RecordLockedException( HTTPException ):
         self.user = user
         HTTPException.__init__( self, description, request )
         return
+
+
+class ConfigFolderNotFound( Exception ):
+    pass
+
+
+class ConfigurationNotFound( Exception ):
+    pass

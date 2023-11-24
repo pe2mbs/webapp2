@@ -121,57 +121,62 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
                          root_path          = root_path,
                          static_folder      = root_path )
 
-        try:
-            # when no config_file is supplied check if the environment has an alternate
-            # configuration
-            if config_file is None and 'FLASK_APP_CONFIG' in os.environ:
-                config_file = os.environ[ 'FLASK_APP_CONFIG' ]
-
-            # Check if the config_file is set and exists
-            if config_file is not None and os.path.isfile( config_file ):
-                print( "Config file: {}".format( os.path.join( root_path, config_file ) ) )
-                API.app.config.fromFile( os.path.join( root_path, config_file ) )
-
-            # Is the config_file a folder ?
-            elif config_file is not None and os.path.isdir( config_file ):
-                print( "Config path: {}".format( config_file ) )
-                API.app.config.fromFolder( config_file )
-
-            # Normal loading of the configuration through the 'config' folder
-            else:
-                print( "Config path: {}".format( os.path.join( root_path, 'config' ) ) )
-                API.app.config.fromFolder( os.path.join( root_path, 'config' ) )
-
-        except Exception as exc:
-            print( "Exception: {} during loading of the configuration".format( exc ),
-                   file = sys.stderr )
-            # Try to load configuration from know locations and files
-            if config_file is None:
-                current_dir = os.path.dirname( __file__ )
-                for searchdir in [ os.path.join( current_dir, '..' ),
-                                   current_dir ]:
-                    for searchfile in[ 'config.yml', 'config.yaml', 'config.json', 'config.conf' ]:
-                        print( os.path.abspath( os.path.join( searchdir, searchfile ) ) )
-                        if os.path.isfile( os.path.abspath( os.path.join( searchdir, searchfile ) ) ):
-                            config_file = os.path.abspath( os.path.join( searchdir, searchfile ) )
-                            break
-
-                    if config_file is not None:
-                        break
-
-            if config_file is None:
-                print( "The config file is missing", file = sys.stderr )
-                exit( -1 )
-
-            print( "Config file: {}".format( os.path.join( root_path, config_file ) ) )
-            API.app.config.fromFile( os.path.join( root_path, config_file ) )
-
+        # try:
+        #     # when no config_file is supplied check if the environment has an alternate
+        #     # configuration
+        #     if config_file is None and 'FLASK_APP_CONFIG' in os.environ:
+        #         config_file = os.environ[ 'FLASK_APP_CONFIG' ]
+        #
+        #     # Check if the config_file is set and exists
+        #     if config_file is not None and os.path.isfile( config_file ):
+        #         print( "Config file: {}".format( os.path.join( root_path, config_file ) ) )
+        #         API.app.config.fromFile( os.path.join( root_path, config_file ) )
+        #
+        #     # Is the config_file a folder ?
+        #     elif config_file is not None and os.path.isdir( config_file ):
+        #         print( "Config path: {}".format( config_file ) )
+        #         API.app.config.fromFolder( config_file )
+        #
+        #     # Normal loading of the configuration through the 'config' folder
+        #     else:
+        #         print( "Config path: {}".format( os.path.join( root_path, 'config' ) ) )
+        #         API.app.config.fromFolder( os.path.join( root_path, 'config' ) )
+        #
+        # except Exception as exc:
+        #     print( "Exception: {} during loading of the configuration".format( exc ),
+        #            file = sys.stderr )
+        #     # Try to load configuration from know locations and files
+        #     if config_file is None:
+        #         current_dir = os.path.dirname( __file__ )
+        #         for searchdir in [ os.path.join( current_dir, '..' ),
+        #                            current_dir ]:
+        #             for searchfile in[ 'config.yml', 'config.yaml', 'config.json', 'config.conf' ]:
+        #                 print( os.path.abspath( os.path.join( searchdir, searchfile ) ) )
+        #                 if os.path.isfile( os.path.abspath( os.path.join( searchdir, searchfile ) ) ):
+        #                     config_file = os.path.abspath( os.path.join( searchdir, searchfile ) )
+        #                     break
+        #
+        #             if config_file is not None:
+        #                 break
+        #
+        #     if config_file is None:
+        #         print( "The config file is missing", file = sys.stderr )
+        #         exit( -1 )
+        #
+        #     print( "Config file: {}".format( os.path.join( root_path, config_file ) ) )
+        #     API.app.config.fromFile( os.path.join( root_path, config_file ) )
+        API.app.config.fromFolder( os.path.join( root_path, 'config' ) )
         # Setup logging for the application
-        if 'logging' in API.app.config:
-            API.loggingInfo = API.app.config[ 'logging' ]
-
-        elif 'LOGGING' in API.app.config:
+        if 'LOGGING' in API.app.config:
             API.loggingInfo = API.app.config[ 'LOGGING' ]
+
+        elif os.path.exists( os.path.join( root_path, 'logging.yaml' ) ):
+            with open( os.path.join( root_path, 'logging.yaml' ), 'r' ) as stream:
+                API.loggingInfo = yaml.load( stream )
+
+        elif os.path.exists( os.path.join( root_path, '..', 'logging.yaml' ) ):
+            with open( os.path.join(root_path, '..', 'logging.yaml'), 'r') as stream:
+                API.loggingInfo = yaml.load( stream )
 
         else:
             API.loggingInfo = LOGGING_INFO
@@ -207,8 +212,12 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
 
         logging.config.dictConfig( API.loggingInfo )
         if logging_name is not None:
-            API.app.logger  = logging.getLogger( logging_name )
+            API.logger  = API.app.logger  = logging.getLogger( logging_name )
 
+        else:
+            API.logger = API.app.logger
+
+        API.app.config.dump( API.logger.info )
         oldFactory = logging.getLogRecordFactory()
         currentFolderLength = len( os.getcwd() ) + 1
         def recordFactory( *args, **kwargs ):

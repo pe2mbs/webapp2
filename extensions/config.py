@@ -1,394 +1,232 @@
-# -*- coding: utf-8 -*-
-"""Main webapp application package."""
-#
-# Main webapp application package
-# Copyright (C) 2018-2020 Marc Bertens-Nguyen <m.bertens@pe2mbs.nl>
-#
-# This library is free software; you can redistribute it and/or modify
-# it under the terms of the GNU Library General Public License GPL-2.0-only
-# as published by the Free Software Foundation.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software
-# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-#
-import traceback
-import logging
+import typing as t
+import yaml
+import json
 import os
 import sys
-import errno
-import copy
-import json
-import datetime
+import deepmerge
+from yamlinclude import YamlIncludeConstructor
 from flask import Config as BaseConfig
-from webapp2.common.iterahead import lookahead
-import yaml
-
-
-
-def my_compose_document(self):
-    self.get_event()
-    node = self.compose_node(None, None)
-    self.get_event()
-    # self.anchors = {}    # <<<< commented out
-    return node
-
-
-yaml.SafeLoader.compose_document = my_compose_document
-
-
-def yaml_include( loader, node ):
-    if node.value.startswith( '.' ):
-        include_name = os.path.join( os.path.dirname( node.start_mark.name ), node.value )
-
-    else:
-        include_name = node.value
-
-    include_name = os.path.abspath( include_name )
-    with open( include_name, 'r' ) as inputfile:
-        data = my_safe_load( inputfile, master = loader )
-        return data
-
-
-yaml.add_constructor( "!include", yaml_include, Loader=yaml.SafeLoader )
-
-
-def my_safe_load(stream, Loader=yaml.SafeLoader, master=None):
-    loader = Loader(stream)
-    if master is not None:
-        loader.anchors = master.anchors
-
-    try:
-        return loader.get_single_data()
-
-    finally:
-        loader.dispose()
+from mako.template import Template
+from webapp2.common.exceptions import ConfigFolderNotFound, ConfigurationNotFound
 
 
 class Config( BaseConfig ):
-    """Flask config enhanced with a `from_yaml` and `from_json` methods."""
-
-    def _configOverRide( self, result, override ):
-        for key, value in override.items():
-            if isinstance( value, dict ):
-                if key not in result:
-                    result[ key ] = {}
-
-                result[ key ] = self._configOverRide( result[ key ], value )
-
-            else:
-                result[ key ] = value
-
-        return result
-
-    def fromFolder( self, config_folder, silent = False ):
-        """First the config/config.yal is loaded as the master configuration.
-
-        Second in sub-folder config/env is checked that a <{FLASK_ENV}>.yaml is located,
-        If so it loaded and the attributes from this file are overriding the config.
-
-        Third in sub-folder config/tsk is checked that a <{FLASK_TASK}>.yaml is located,
-        If so it loaded and the attributes from this file are overriding the config.
-
-
-        :param config_folder:
-        :param silent:
-        :return:
-        """
-        result = {}
-        try:
-            if os.path.isdir( config_folder ):
-                # Master configuration
-                configFile = os.path.join( config_folder, 'config.conf' )
-                if os.path.isfile( configFile ):
-                    with open( configFile, 'r' ) as stream:
-                        result = my_safe_load( stream )
-
-                else:
-                    raise Exception( 'No master configuration present {}'.format( configFile ) )
-
-                env = os.environ.get( 'FLASK_ENV', 'DEVELOPMENT' ).upper()
-                envFolder = os.path.join( config_folder, 'env' )
-                if os.path.isdir( envFolder ):
-                    configFile = os.path.join( envFolder, '{}.conf'.format( env.upper() ) )
-                    if os.path.isfile( configFile ):
-                        with open( configFile, 'r' ) as stream:
-                            result = self._configOverRide( result, my_safe_load( stream ) )
-
-                    else:
-                        print( "No ENVIRONENT config", file = sys.stderr )
-
-                else:
-                    # no custom configutions at all.
-                    print( "No 'env' folder for ENVIRONEMNT configurations", file = sys.stderr )
-
-                self[ 'ENVIRONMENT' ] = env.lower()
-                tsk = os.environ.get( 'FLASK_TASK', 'WEBAPP' ).upper()
-                tskFolder = os.path.join( config_folder, 'tsk' )
-                if os.path.isdir( tskFolder ):
-                    configFile = os.path.join( tskFolder, '{}.conf'.format( tsk.upper() ) )
-                    if os.path.isfile( configFile ):
-                        with open( configFile, 'r' ) as stream:
-                            result = self._configOverRide( result, my_safe_load( stream ) )
-
-                    else:
-                        print( "No TASK config", file = sys.stderr )
-
-                self[ 'WEBAPP_TASK' ] = tsk.lower()
-
-            else:
-                raise Exception( "Configuration folder not present: {}".format( config_folder ) )
-
-            return self._modify( result )
-
-        except Exception:
-            print( traceback.format_exc() )
-            raise
-
-    def fromFile( self, config_file, silent=False ):
-        """Load the configuration from a file, currently JSON and YAML formats
-        are supported
-
-        :param config_file:     the filename of the JSON or YAML file.
-                                This can either be an absolute filename
-                                or a filename relative to the root path.
-        :param silent:          set to ``True`` if you want silent failure
-                                for missing files.
-        :return:                ``True`` if able to load config,
-                                ``False`` otherwise.
-        """
-
-        ext = os.path.splitext( config_file )[ 1 ]
-        if ext == '.json':
-            result = self.fromJson( config_file )
-
-        elif ext in ( '.yml', '.yaml' ):
-            result = self.fromYaml( config_file )
-
-        else:
-            raise Exception( "Could not load file type: '%s'" % ( ext ) )
-
-        return result
-
-    def fromYaml( self, config_file, silent=False ):
-        """Load the configuration from a file, currently YAML formats
-        are supported
-
-        :param config_file:     the filename of the YAML file.
-                                This can either be an absolute filename
-                                or a filename relative to the root path.
-        :param silent:          set to ``True`` if you want silent failure
-                                for missing files.
-        :return:                ``True`` if able to load config,
-                                ``False`` otherwise.
-        """
-
-        # Get the Flask environment variable, if not exist assume development.
-        env = os.environ.get( 'FLASK_ENV', 'DEVELOPMENT' ).upper()
-        self[ 'ENVIRONMENT' ] = env.lower()
-        try:
-            with open( config_file ) as f:
-                c = my_safe_load( f )
-
-        except IOError as e:
-            if silent and e.errno in (errno.ENOENT, errno.EISDIR):
-                return False
-
-            e.strerror = 'Unable to load configuration file (%s)' % e.strerror
-            raise
-
-        taskSection = c.get( 'COMMON_TASKS', {} ).get( os.environ.get( 'FLASK_TASK', 'webapp' ), {} )
-        return self._modify( c.get( env, c ), taskSection )
-
-    def fromJson( self, config_file, silent=False ):
-        """Load the configuration from a file, currently JSON formats
-        are supported
-
-        :param config_file:     the filename of the JSON file.
-                                This can either be an absolute filename
-                                or a filename relative to the root path.
-        :param silent:          set to ``True`` if you want silent failure
-                                for missing files.
-        :return:                ``True`` if able to load config,
-                                ``False`` otherwise.
-        """
-
-        # Get the Flask environment variable, if not exist assume development.
-        env = os.environ.get( 'FLASK_ENV', 'DEVELOPMENT' )
-        self[ 'ENVIRONMENT' ] = env.lower()
-        try:
-            with open( config_file ) as f:
-                c = json.load( f )
-
-        except IOError as e:
-            if silent and e.errno in (errno.ENOENT, errno.EISDIR):
-                return False
-
-            e.strerror = 'Unable to load configuration file (%s)' % e.strerror
-            raise
-
-        # Get the environment segment
-        segment = copy.copy( c.get( env, c ) )
-        # self.__dump( segment )
-        if 'inport' in segment:
-            # Get the import segment
-            c = copy.copy( c.get( segment[ 'inport' ], {} ) )
-            # join the selected segment and imported segment, making sure that
-            # the selected segment has priority over the imported segement
-            c.update( segment )
-            segment = c
-
-        if 'COMMON_TASKS' in c:
-            taskSection = c.get( 'COMMON_TASKS', {} ).get( os.environ.get( 'FLASK_TASK', 'webapp' ), {} )
-
-        else:
-            taskSection = {}
-
-        return self._modify( segment, taskSection )
-
-    def _modify( self, c, taskSection = None ):
-        """Internal updater to fix PATH's and DATABASE uri
-
-        :param c:
-        :return:
-        """
-        delta_keys = ( "PERMANENT_SESSION_LIFETIME",
-                       "SEND_FILE_MAX_AGE_DEFAULT",
-                       "JWT_ACCESS_TOKEN_EXPIRES",
-                       "JWT_REFRESH_TOKEN_EXPIRES" )
-
-        if isinstance( taskSection, dict ):
-            # print( "taskSection", taskSection )
-
-            def resolveKeys( path, keys, value ):
-                for key, more in lookahead( keys ):
-                    if more:
-                        path = path[ key ]
-
-                    else:
-                        path[ key ] = value
-                        return
-
-                return
-
-            def resolveKey( path, upd ):
-                for key, value in  upd.items():
-                    if '.' in key:
-                        resolveKeys( c, key.split( '.' ), value )
-
-                    elif isinstance( value, dict ):
-                        path[ key ] = resolveKey( path[ key ], value )
-
-                    else:
-                        path[ key ] = value
-
-                return path
-
-            try:
-                resolveKey( c, taskSection )
-
-            except Exception:
-                logging.getLogger().exception( "Resolving the config failed" )
-
-        for key in c.keys():
-            if key.isupper():
-                # Is the variable '**PATH**' in the name and starts with a dot.
-                if "PATH" in key and c[ key ].startswith( '.' ):
-                    # Resolve the path to a full path
-                    self[ key ] = os.path.abspath( os.path.join( self.root_path, c[ key ] ) )
-
-                else:
-                    def func( value ):
-                        try:
-                            return int( value )
-
-                        except Exception as exc:
-                            pass
-
-                        return value
-
-                    if key in delta_keys:
-                        if '=' in c[ key ]:
-                            # convert the string to a dict.
-                            settings = dict( map( func, x.split( '=' ) ) for x in c[ key ].split( ',' ) )
-                            self[ key ] = datetime.timedelta( **settings )
-
-                        else:
-                            self[ key ] = c[ key ]
-
-                    else:
-                        self[ key ] = c[ key ]
-
-        if 'DATABASE' in c:
-            database_cfg = c[ 'DATABASE' ]
-            engine = database_cfg[ 'ENGINE' ]
-            if engine == 'sqlite':
-                # For Sqlite the connect string is different, contains path and database filename
-                database_cfg[ 'APP_PATH' ] = self[ 'APP_PATH' ]
-                db_uri = '{ENGINE}:///{APP_PATH}/{SCHEMA}'.format( **database_cfg )
-
-            elif engine == 'oracle':
-                db_uri = '{ENGINE}://{USERNAME}:{PASSWORD}@{TNS}'.format(**database_cfg)
-
-            else:
-                # For other databases
-                if 'HOST' not in database_cfg:
-                    database_cfg[ 'HOST' ] = 'localhost'
-
-                if 'PORT' not in database_cfg:
-                    # 'HOST_ADDRESS' set to 'HOST' variable
-                    database_cfg[ 'HOST_ADDRESS' ] = database_cfg[ 'HOST' ]
-
-                else:
-                    # 'HOST_ADDRESS' set to 'HOST' and 'PORT' variable
-                    database_cfg[ 'HOST_ADDRESS' ] = '{HOST}:{PORT}'.format( **database_cfg )
-
-                if 'USERNAME' in database_cfg and 'PASSWORD' in database_cfg:
-                    # Include username and password into the 'HOST_ADDRESS'
-                    database_cfg[ 'HOST_ADDRESS' ] = '{USERNAME}:{PASSWORD}@{HOST_ADDRESS}'.format( **database_cfg )
-
-                elif 'USERNAME' in database_cfg:
-                    # Include username into the 'HOST_ADDRESS'
-                    database_cfg[ 'HOST_ADDRESS' ] = '{USERNAME}@{HOST_ADDRESS}'.format( **database_cfg )
-
-                db_uri = '{ENGINE}://{HOST_ADDRESS}/{SCHEMA}'.format( **database_cfg )
-
-            self[ 'SQLALCHEMY_DATABASE_URI' ] = db_uri
-
-        if self[ 'ENVIRONMENT' ] not in ( 'prod' ):
-            self._dump()
-
-        return True
-
-    def _dump( self, segment = None, stream = None ):
-        if os.environ.get( 'FLASK_DEBUG', 0 ) == 0:
+    class ConfigLoader(yaml.SafeLoader):
+        def __init__( self, stream ):
+            super().__init__( stream )
             return
 
-        logger = logging.getLogger( 'flask.app' )
-        def logit( data ):
-            if stream:
-                print( data )
+    class MyMerger( deepmerge.Merger ):
+        def __init__(self):
+            super().__init__(  # pass in a list of tuple, with the
+                # strategies you are looking to apply to each type.
+                [ ( list, [ "append" ] ), ( dict, [ "merge" ] ), ( set, [ "union" ] ) ],
+                # next, choose the fallback strategies, applied to all other types:
+                [ "override" ],
+                # finally, choose the strategies in the case where the types conflict:
+                [ "override" ] )
+            return
 
-            else:
-                logger.info( data )
+    def __init__( self, root_path: str,
+                  defaults: t.Union[dict,None] = None ):
+        super().__init__( root_path, defaults )
+        self.__merge = Config.MyMerger()
+        self.__merger = self.__merge.merge
+        self.__extension = 'json'
+        return
 
-        if segment is None:
-            segment = self
-            logit( "Dump configuration." )
+    def fromFolder( self, config_folder, extension: str = 'yaml' ):
+        self.__extension = extension
+        if not os.path.exists( config_folder ):
+            configFolder = os.path.abspath( os.path.join( config_folder, '..' ) )
 
         else:
-            logit( "Dump segment configuration." )
+            configFolder = config_folder
 
-        for key in sorted( segment.keys() ):
-            logit( "%-30s : %s" % ( key, segment[ key ] ) )
+        if not os.path.exists( configFolder ):
+            raise ConfigFolderNotFound( config_folder )
+
+        if not os.path.exists( os.path.join( configFolder, f"config.{ self.__extension }") ):
+            raise ConfigurationNotFound( os.path.join( configFolder, f"config.{ self.__extension }" ) )
+
+        YamlIncludeConstructor.add_to_loader_class( loader_class = Config.ConfigLoader,
+                                                    base_dir = config_folder )  # or specify another dir relatively or absolutely
+        # Load the default configuration, which is shared for every body.
+        config  = self.loadConfiguration( config_folder, 'config' )
+        # For the task we use the starter script name
+        segment = os.path.splitext( os.path.basename( sys.argv[ 0 ] ) )[ 0 ]
+        config  = self.loadConfiguration( config_folder, segment, 'tsk', config )
+        # First check if the depricated FLASK_ENV is set, if not we check WEBAPP_ENV,
+        # when is not set either we use the login name in uppercase.
+        segment = os.environ.get( 'FLASK_ENV', os.environ.get( 'WEBAPP_ENV', os.getlogin().upper() ) )
+        config  = self.loadConfiguration( config_folder, segment, 'env', config )
+        config  = self.resolveSqlalchemy( config )
+        self.update( self.resolver( config ) )
+        return config
+
+    def loadConfiguration( self,
+                           config_folder: str,
+                           segment: str,
+                           section: t.Optional[str] = None,
+                           config: t.Optional[t.Union[dict]] = None ):
+        not_exists_ok   = False
+        if config is None:
+            config      = {}
+
+        if section is None:
+            config_file     = os.path.join( config_folder, f'{segment}.{self.__extension}' )
+
+        else:
+            # Only for the section config we allow for Not Exists
+            config_file     = os.path.join( config_folder, section, f'{segment}.{self.__extension}' )
+            not_exists_ok   = True
+
+        if os.path.exists( config_file ):
+            with open( config_file, 'r' ) as stream:
+                config = self.__merger( config, Config._flatten( yaml.load(stream, Loader=Config.ConfigLoader ) ) )
+
+            config.setdefault( 'WEBAPP', {} )[ segment.upper() ] = config_file
+
+        elif not not_exists_ok:
+            raise FileNotFoundError( f"{ config_file } not found" )
+
+        if (section or '').lower() == 'env':
+            config[ 'ENV' ] = segment.upper()
+
+        return config
+
+    def from_file( self, filename: str, load: t.Optional[t.Callable[[t.IO[t.Any]], t.Mapping]] = None,
+                   silent: bool = False, text: bool = True ) -> bool:
+        return super().from_file( filename, yaml.load, silent, True )
+
+    def resolver( self, config: dict ):
+        """ This resolver tries to resolve the ${ variable } in the configuration
+            When it could not resolve it leaves the item as-is
+        """
+        for key in config.keys():
+            value = config[ key ]
+            if isinstance( value, str ):
+                Config.tryToResolve( config, key, value )
+
+            elif isinstance( value, dict ):
+                config[ key ] = self.resolver( value )
+
+            elif isinstance( value, list ):
+                for idx, item in enumerate( value ):
+                    if isinstance( item, str ):
+                        Config.tryToResolve( config, key, value )
+
+                    elif isinstance( item, dict ):
+                        config[ key ][ idx ] = self.resolver( item )
+
+        return config
+
+    def resolveSqlalchemy( self, config: dict ):
+        """ This resolved the segment DATABASE into SQLALCHEMY_DATABASE_URI
+        """
+        if 'SQLALCHEMY_DATABASE_URI' not in config and 'DATABASE' in config:
+            #
+            #   Setup SQLALCHEMY_DATABASE_URI parameter from the DATABASE segment
+            #
+            database = config[ 'DATABASE' ]
+            config[ 'SQLALCHEMY_DATABASE_URI' ] = Config._buildSqlalchemyUrl( database )
+            # If there are any binds
+            for bind in database.get( 'BINDS', [] ):
+                schema = bind.get( 'SCHEMA' )
+                if schema is not None:
+                    dbname = os.path.split( schema )[ -1 ]
+                    config.setdefault( 'SQLALCHEMY_BINDS', {} )[ dbname ] = Config._buildSqlalchemyUrl( bind )
+
+        return config
+
+    def dump( self, dumper: t.Optional[ t.Callable ] = None ):
+        if not callable( dumper ):
+            dumper = print
+
+        dumper( yaml.dump( self ) )
+        return
+
+    @staticmethod
+    def tryToResolve( config, key, value ):
+        """ This resolves values that contain ${ var }
+        """
+        try:
+            if '${' in value:
+                config[ key ] = Template( text = value ).render( **config )
+
+        except Exception:
+            # When an exception occurs we don't change it, we leave it as-is
+            pass
 
         return
 
-    @property
-    def struct( self ):
-        return dict( self )
+    @staticmethod
+    def _buildSqlalchemyUrl( database ):
+        """ This builds url for SQLALCHEMY_DATABASE_URI or BINDS for SqlAlchemy
+        """
+        engine = database.get( 'ENGINE', 'sqlite' )     # Some defaults for testing
+        schema = database.get( 'SCHEMA', ':memory:' )
+        username = database.get( 'USERNAME', '' )
+        password = database.get( 'PASSWORD', '' )
+        host = database.get( 'HOST' )
+        port = database.get( 'PORT' )
+        if isinstance( host, str ):
+            hostname = f"{ host }:{ port }" if isinstance( port, int ) else host
+
+        else:
+            hostname = None
+
+        if engine.startswith( 'sqlite' ):
+            uri = f'{engine}:///{schema}'
+
+        else:
+            # All others are handled like this, mysql/mariadb is what we use currently
+            if isinstance( hostname, str ):
+                hostname += '/'
+
+            else:
+                hostname = ''
+
+            uri = f"{engine}://{username}:{password}@{hostname}{schema}"
+
+        return uri
+
+    @staticmethod
+    def _flatten( data: any ):
+        """ This resolves __inherit__
+        """
+        if isinstance( data, dict ):
+            result = {}
+            for key, value in data.items():
+                if key == '__inherit__':
+                    for k1, v1 in value.items():
+                        if k1 not in data:
+                            result[ k1 ] = v1
+
+                else:
+                    if isinstance( value, dict ):
+                        result[ key ] = Config._flatten( value )
+
+                    elif isinstance( value, list ):
+                        arr = []
+                        for item in value:
+                            if isinstance( item, dict ):
+                                arr.append( Config._flatten( item ) )
+
+                            else:
+                                arr.append( item )
+
+                        result[ key ] = arr
+
+                    else:
+                        result[ key ] = value
+
+        elif isinstance( data, list ):
+            result = []
+            for item in data:
+                result.append( Config._flatten( item ) )
+
+        else:
+            result = data
+
+        return result
