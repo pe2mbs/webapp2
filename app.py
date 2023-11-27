@@ -277,11 +277,11 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
             @API.app.before_request
             def limitRemoteAddress():
                 addr = ipaddress.ip_address(request.remote_addr)
-                API.logger.info( f"Remote address : {addr}" )
                 for _address in API.accessRestriction:
                     if addr in _address:
                         return
 
+                API.logger.warning(f"Remote address {addr} rejected")
                 abort( 403 )
 
         @API.app.errorhandler( 403 )
