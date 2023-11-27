@@ -18,6 +18,8 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 import os
+import socket
+import ipaddress
 import sys
 import yaml
 import logging
@@ -25,7 +27,7 @@ import logging.config
 import logging.handlers
 import traceback
 import importlib
-
+from mako.template import Template
 from inspect import signature
 from webapp2.version import version_no, date, author
 import webapp2.api as API
@@ -37,6 +39,7 @@ from webapp2.common.plugins import loadPlugins
 from webapp2.extensions.register import registerExtensions
 from webapp2.commands.register import registerCommands
 from webapp2.extensions.flask import Flask
+from flask import request, abort
 import webapp2.extensions.database              # noqa
 import webapp2.extensions.marshmallow           # noqa
 import webapp2.extensions.migrate               # noqa
@@ -249,6 +252,44 @@ def createApp( root_path, config_file = None, module = None, full_start = True, 
         if not full_start:
             # Not starting the full application, therefore we do not load all the application modules.
             raise NormalEndProcess()
+
+        accessRestriction = API.app.config.get( 'ACCESS_RESTRICTION' )
+        if isinstance( accessRestriction, list ):
+            API.accessRestriction           = []
+            # Build Network address list
+            for address in accessRestriction:
+                if '/' in address:
+                    API.accessRestriction.append(ipaddress.ip_network( address ) )
+
+                else:
+                    API.accessRestriction.append( ipaddress.ip_network( socket.gethostbyname( address ) ) )
+
+        elif isinstance( accessRestriction, str ):
+            API.accessRestriction = []
+            API.accessRestriction.append( ipaddress.ip_network( socket.gethostbyname( accessRestriction ) ) )
+
+        # else:
+        #   pass
+        if isinstance( API.accessRestriction, (list) ):
+            API.logger.info( f"Register restricted addresses: { API.accessRestriction }" )
+            # Always include 'localhost' both IPv4 and IPv6
+            API.accessRestriction = tuple( API.accessRestriction + [ ipaddress.ip_network( '127.0.0.1' ), ipaddress.ip_network( '::1' ) ] )
+            @API.app.before_request
+            def limitRemoteAddress():
+                addr = ipaddress.ip_address(request.remote_addr)
+                API.logger.info( f"Remote address : {addr}" )
+                for _address in API.accessRestriction:
+                    if addr in _address:
+                        return
+
+                abort( 403 )
+
+        @API.app.errorhandler( 403 )
+        def NoAccessDueAccessRestriction( *args, **kwargs ):
+            API.logger.info( f"{args} :: {kwargs}" )
+            filename = os.path.join( os.path.dirname( __file__ ), "403-error.html" )
+            return Template( filename = filename ).render( hostname = API.app.config.get( 'HOSTNAME', 'https://testrun.internal.zone/' ),
+                                                           localaddr = request.remote_addr )
 
         loadPlugins( root_path )
         API.app.logger.info( "AngularPath : {}".format( API.app.config[ 'ANGULAR_PATH' ] ) )
