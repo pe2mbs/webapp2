@@ -282,7 +282,11 @@ class Config( BaseConfig ):
                         resolveKeys( c, key.split( '.' ), value )
 
                     elif isinstance( value, dict ):
-                        path[ key ] = resolveKey( path[ key ], value )
+                        if key in path:
+                            path[ key ] = resolveKey( path[ key ], value )
+
+                        else:
+                            path[ key ] = value
 
                     else:
                         path[ key ] = value
@@ -294,6 +298,7 @@ class Config( BaseConfig ):
 
             except Exception:
                 logging.getLogger().exception( "Resolving the config failed" )
+                raise
 
         for key in c.keys():
             if key.isupper():
