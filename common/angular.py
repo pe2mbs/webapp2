@@ -20,6 +20,7 @@
 import os
 from flask import Blueprint, send_from_directory, current_app, request, jsonify
 from mako.template import Template
+from sqlalchemy import text
 from werkzeug.routing import BaseConverter
 import webapp2.api as API
 from webapp2.extensions.database import db
@@ -158,11 +159,11 @@ def getDatabaseConfig():
     from collections import namedtuple
     dbCfg = current_app.config[ 'DATABASE' ]
     if dbCfg.get( 'ENGINE', 'sqlite' ) == 'oracle':
-        dbCfg[ 'SCHEMA' ] = dbCfg.get('TNS', '' )
+        dbCfg[ 'SCHEMA' ] = dbCfg.get( 'TNS', '' )
 
     schema = dbCfg.get( 'SCHEMA', 'database.db' )
     connection = db.session.connection()
-    result = connection.execute( f"select version_num from {schema}.alembic_version" )
+    result = connection.execute( text( f"select version_num from {schema}.alembic_version" ) )
     Record = namedtuple('Record', result.keys())
     records = [Record(*r) for r in result.fetchall()]
     alembic_version = [ r.version_num for r in records ]
